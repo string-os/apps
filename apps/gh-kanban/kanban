@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# kanban — gh Projects v2 helpers for ops gh CLI doesn't ship as one command.
+# Used by the string-app:gh-kanban for actions that need multi-step lookups.
+#
+# Usage:
+#   kanban move <owner> <project_number> <card_number> <status_name>
+
+set -euo pipefail
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  move)
+    owner="${1:?owner required}"
+    proj="${2:?project number required}"
+    card="${3:?card number required}"
+    target="${4:?target status required}"
+
+    proj_id=$(gh project view "$proj" --owner "$owner" --format json --jq '.id')
+
+    field=$(gh project field-list "$proj" --owner "$owner" --format json \
+      | jq -c '.fields[] | select(.name == "Status")')
+    field_id=$(echo "$field" | jq -r '.id')
+    option_id=$(echo "$field" | jq -r --arg n "$target" '.options[] | select(.name == $n) | .id')
+
+    if [ -z "$option_id" ] || [ "$option_id" = "null" ]; then
+      valid=$(echo "$field" | jq -r '.options | map(.name) | join(", ")')
+      echo "ERROR: status \"$target\" not in project. Valid: $valid" >&2
+      exit 1
+    fi
+
+    item_id=$(gh project item-list "$proj" --owner "$owner" --format json --limit 200 \
+      | jq -r --argjson n "$card" '.items[] | select(.content.number == $n) | .id')
+
+    if [ -z "$item_id" ] || [ "$item_id" = "null" ]; then
+      echo "ERROR: card #$card not in project" >&2
+      exit 1
+    fi
+
+    gh project item-edit \
+      --id "$item_id" \
+      --project-id "$proj_id" \
+      --field-id "$field_id" \
+      --single-select-option-id "$option_id" >/dev/null
+
+    echo "moved card-$card -> $target"
+    ;;
+  *)
+    echo "Usage: kanban <command> [args]" >&2
+    echo "Commands:" >&2
+    echo "  move <owner> <project_number> <card_number> <status_name>" >&2
+    exit 1
+    ;;
+esac

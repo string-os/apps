@@ -1,0 +1,268 @@
+#!/usr/bin/env bash
+# appkit — scaffold + lint helper for SFMD apps.
+#
+# Usage:
+#   appkit new <name> [type] [dir]
+#   appkit validate <path>
+#   appkit examples
+
+set -euo pipefail
+
+cmd="${1:-}"
+shift || true
+
+scaffold() {
+  local name="$1"
+  local kind="$2"   # app | tool
+  local dir="$3"
+
+  local target="$dir/$name"
+  if [ -e "$target" ]; then
+    echo "ERROR: $target already exists" >&2
+    exit 1
+  fi
+
+  mkdir -p "$target"
+
+  cat >"$target/string.md" <<MD
+---
+name: $name
+namespace: local
+version: 0.1.0
+description: A starter SFMD $kind. Edit this string.md and reinstall.
+tags: [starter]
+type: $kind
+default: hello
+---
+
+# $name
+
+A minimal SFMD $kind. Run \`/act.hello\` (the default) to see it work,
+then edit this file to add real actions.
+
+\`\`\`
+/act.hello name=world          # the default action
+/act.echo --message "hi"       # CLI action with a flag
+\`\`\`
+
+Action signatures: \`/act --help\`.
+
+\`\`\`act.hello
+CLI echo "hello, {name}"
+  name, -n: string "Who to greet" = "world"
+\`\`\`
+
+\`\`\`act.hello.response
+{Response.body}
+\`\`\`
+
+\`\`\`act.echo
+CLI echo "{message}"
+  message, -m: string (required) "Text to echo back"
+\`\`\`
+
+\`\`\`act.echo.response
+{Response.body}
+\`\`\`
+MD
+
+  cat >"$target/requirements.md" <<MD
+---
+title: $name — Requirements
+---
+
+# Requirements
+
+This $kind ships with no external dependencies. Edit \`string.md\` to add
+real actions, then list any required tools / env vars here.
+
+## Configuration
+
+If your actions read \`\$VARS\`, set them once:
+
+\`\`\`
+/set \$MY_TOKEN = "..."
+\`\`\`
+
+And declare them in the frontmatter \`requires:\` so users see a clear
+warning when missing:
+
+\`\`\`yaml
+requires: [MY_TOKEN]
+\`\`\`
+MD
+
+  echo "created $target/"
+  echo "  string.md"
+  echo "  requirements.md"
+  echo ""
+  echo "next:"
+  echo "  appkit validate $target/string.md"
+  echo "  string /install --$kind $target"
+  echo "  string $kind:$name              # try it"
+}
+
+validate() {
+  local path="$1"
+  if [ ! -f "$path" ]; then
+    echo "ERROR: $path not found" >&2
+    exit 1
+  fi
+
+  local errors=0
+  local warns=0
+
+  # Frontmatter must be the first thing in the file.
+  if ! head -n 1 "$path" | grep -qx -- '---'; then
+    echo "✗ no frontmatter (file must start with \`---\`)"
+    errors=$((errors+1))
+  else
+    # Required fields.
+    for field in name namespace version type; do
+      if ! awk '/^---$/{n++; next} n==1' "$path" | grep -Eq "^$field:"; then
+        echo "✗ frontmatter missing: $field"
+        errors=$((errors+1))
+      fi
+    done
+
+    # type must be app or tool.
+    local t
+    t=$(awk '/^---$/{n++; next} n==1 && /^type:/ {sub(/^type:[[:space:]]*/,""); print; exit}' "$path")
+    if [ -n "$t" ] && [ "$t" != "app" ] && [ "$t" != "tool" ]; then
+      echo "✗ type must be \"app\" or \"tool\" (got \"$t\")"
+      errors=$((errors+1))
+    fi
+
+    # default action, if declared, must have a matching act block.
+    local def
+    def=$(awk '/^---$/{n++; next} n==1 && /^default:/ {sub(/^default:[[:space:]]*/,""); print; exit}' "$path")
+    if [ -n "$def" ]; then
+      if ! grep -qE "^\`\`\`act\.$def\b" "$path"; then
+        echo "✗ default: $def declared but no \`\`\`act.$def block"
+        errors=$((errors+1))
+      fi
+    fi
+  fi
+
+  # Each act block needs an action signature on line 1 of the block.
+  # Valid verbs: GET POST PUT PATCH DELETE CLI. Also collect sibling-script
+  # refs (./name) seen inside act blocks so we can existence-check below.
+  local in_act=0
+  local act_id=""
+  local first_line=""
+  local script_refs=""
+  while IFS= read -r line; do
+    if [ $in_act -eq 0 ]; then
+      if [[ "$line" =~ ^\`\`\`act\.([a-zA-Z0-9_-]+)(\.(response|error))?[[:space:]]*$ ]]; then
+        act_id="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+        in_act=1
+        first_line=""
+      fi
+    else
+      if [[ "$line" =~ ^\`\`\`[[:space:]]*$ ]]; then
+        in_act=0
+        if [[ "$act_id" != *.response && "$act_id" != *.error ]]; then
+          if ! [[ "$first_line" =~ ^(GET|POST|PUT|PATCH|DELETE|CLI)\  ]]; then
+            echo "✗ act.$act_id: line 1 must start with GET/POST/PUT/PATCH/DELETE/CLI (got: \"${first_line:0:40}\")"
+            errors=$((errors+1))
+          fi
+        fi
+        act_id=""
+      else
+        [ -z "$first_line" ] && first_line="$line"
+        if [[ "$act_id" != *.response && "$act_id" != *.error ]]; then
+          if [[ "$line" =~ CLI[[:space:]]+\./([a-zA-Z0-9_.-]+) ]]; then
+            script_refs="$script_refs ${BASH_REMATCH[1]}"
+          fi
+        fi
+      fi
+    fi
+  done < "$path"
+
+  # requirements.md should exist if frontmatter declares requires:.
+  if grep -qE '^requires:' "$path"; then
+    local dir
+    dir=$(dirname "$path")
+    if [ ! -f "$dir/requirements.md" ]; then
+      echo "⚠ requires: declared but no sibling requirements.md"
+      warns=$((warns+1))
+    fi
+  fi
+
+  # Sibling scripts referenced as ./name (collected inside act blocks above)
+  # should exist + be executable.
+  local dir
+  dir=$(dirname "$path")
+  for ref in $(echo "$script_refs" | tr ' ' '\n' | sort -u); do
+    [ -z "$ref" ] && continue
+    local script="$dir/$ref"
+    if [ ! -f "$script" ]; then
+      echo "✗ references ./$ref but file not found"
+      errors=$((errors+1))
+    elif [ ! -x "$script" ]; then
+      echo "⚠ ./$ref exists but is not executable (chmod +x)"
+      warns=$((warns+1))
+    fi
+  done
+
+  echo ""
+  if [ $errors -eq 0 ]; then
+    echo "OK ($warns warning$([ $warns -eq 1 ] || echo s))"
+  else
+    echo "$errors error$([ $errors -eq 1 ] || echo s), $warns warning$([ $warns -eq 1 ] || echo s)"
+    exit 1
+  fi
+}
+
+examples() {
+  cat <<'EOF'
+Curated SFMD apps to read for patterns:
+
+  weather       Simplest GET action with response template.
+                One action, no auth, query string parsing.
+
+  websearch     GET with API key from env, JSON response → list.
+                Good template for any "search engine" wrapper.
+
+  github        REST GET/POST with --header for auth, multiple actions
+                sharing one base URL via {OWNER}/{REPO} substitution.
+
+  gh-kanban     CLI actions wrapping gh Projects v2. Demonstrates
+                tuple value shortcuts ({@card} = (number, repo)) and
+                a sibling shell script for multi-step ops.
+
+  moltbook      Full app: feed → read → comment chain using {@feed-N}
+                enumerated shortcuts and {@reply} = (post, comment_id)
+                tuples. The reference for response-template authoring.
+
+Source: https://github.com/string-os/string/tree/main/cookbook/apps
+EOF
+}
+
+case "$cmd" in
+  new)
+    name="${1:?usage: appkit new <name> [type] [dir]}"
+    kind="${2:-app}"
+    dir="${3:-.}"
+    if [ "$kind" != "app" ] && [ "$kind" != "tool" ]; then
+      echo "ERROR: type must be \"app\" or \"tool\" (got \"$kind\")" >&2
+      exit 1
+    fi
+    scaffold "$name" "$kind" "$dir"
+    ;;
+  validate)
+    path="${1:?usage: appkit validate <path/to/string.md>}"
+    validate "$path"
+    ;;
+  examples)
+    examples
+    ;;
+  *)
+    echo "Usage: appkit <command> [args]" >&2
+    echo "Commands:" >&2
+    echo "  new <name> [type] [dir]   Scaffold a starter app/tool" >&2
+    echo "  validate <path>           Lint a string.md" >&2
+    echo "  examples                  List curated example apps" >&2
+    exit 1
+    ;;
+esac
