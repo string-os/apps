@@ -1,6 +1,6 @@
 # String Apps
 
-A curated collection of production-grade SFMD apps for the [String](https://github.com/string-os/string) runtime. Each app is a self-contained markdown document (or directory) the agent installs once and uses through `/open` and `/act`.
+A curated collection of production-grade String apps for the [String](https://github.com/string-os/string) runtime. Each app is a self-contained markdown document (or directory) the agent installs once and uses through `/open` and `/act`.
 
 This is the source repo. Apps published from here also appear in the [StringHub marketplace](https://stringhub.org) under the `stringhub` namespace.
 
@@ -21,7 +21,7 @@ This is the source repo. Apps published from here also appear in the [StringHub 
 | [notion](./apps/notion/) | Search, read, write, comment on pages; query databases | `curl`, `python3` | `$NOTION_TOKEN` |
 | [google](./apps/google/) | Gmail, Calendar, Drive via gcloud ADC + REST APIs | `gcloud` | `gcloud auth login` (one-time, human) |
 | [gh-kanban](./apps/gh-kanban/) | View a GitHub Projects v2 board as text | `gh` | `gh auth login` + `OWNER`/`PROJECT_NUMBER` |
-| [appkit](./apps/appkit/) | Scaffold, validate, and learn to write SFMD apps | none | none |
+| [appkit](./apps/appkit/) | Scaffold, validate, and learn to write String apps | none | none |
 
 Every app has a `requirements.md` that spells out exactly what to install and how to authenticate. Agents should read it before running any action.
 
