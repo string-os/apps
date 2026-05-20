@@ -20,8 +20,10 @@ This is the source repo. Apps published from here also appear in the [StringHub 
 | [whisper](./apps/whisper/) | Local speech-to-text with OpenAI Whisper | `whisper`, `ffmpeg` | none |
 | [notion](./apps/notion/) | Search, read, write, comment on pages; query databases | `curl`, `python3` | `$NOTION_TOKEN` |
 | [google](./apps/google/) | Gmail, Calendar, Drive via gcloud ADC + REST APIs | `gcloud` | `gcloud auth login` (one-time, human) |
+| [gh-kanban](./apps/gh-kanban/) | View a GitHub Projects v2 board as text | `gh` | `gh auth login` + `OWNER`/`PROJECT_NUMBER` |
+| [appkit](./apps/appkit/) | Scaffold, validate, and learn to write SFMD apps | none | none |
 
-Every app has a `requirement.md` that spells out exactly what to install and how to authenticate. Agents should read it before running any action.
+Every app has a `requirements.md` that spells out exactly what to install and how to authenticate. Agents should read it before running any action.
 
 ---
 
@@ -65,16 +67,18 @@ Each app under `apps/<name>/` has at minimum:
 
 ```
 apps/translate/
-├── string.md         ← entry point — opens with /open app:translate
-└── requirement.md    ← dependencies, auth, setup steps (read before use)
+├── string.md          ← entry point — opens with /open app:translate
+└── requirements.md    ← dependencies, auth, setup steps (read before use)
 ```
+
+The setup doc must be named `requirements.md` (plural): the runtime auto-detects a sibling by that name and surfaces it (`Setup: /open requirements.md`) on a missing-env warning or an action error. For the hosted/marketplace path, also declare it explicitly with a `[!requirements](./requirements.md)` directive near the top of `string.md`.
 
 Multi-page apps add more `.md` files alongside (and optionally a `nav/main.md`):
 
 ```
 apps/github/
 ├── string.md
-├── requirement.md
+├── requirements.md
 ├── nav/main.md
 ├── repos.md
 ├── issues.md
@@ -97,8 +101,9 @@ version: 1.0.0
 type: app                    # or "tool" — decides app: vs tool: lookup
 description: ...
 tags: [...]
-default: <action-id>         # auto-runs on /open, /refresh, /back (optional)
-env:                         # required environment variables (optional)
+default: <action-id>         # auto-runs on /open, /refresh, /back — only if it takes no required args (optional)
+requires: [NOTION_TOKEN]     # required env vars — runtime warns "[!] Missing required env" if unset (optional)
+env:                         # human-readable descriptions of those vars; documentation only (optional)
   - name: NOTION_TOKEN
     description: ...
 ---
@@ -106,16 +111,18 @@ env:                         # required environment variables (optional)
 
 `(namespace, name)` is the canonical identity. Two apps that share `name` but differ in `namespace` install side-by-side; the same `(namespace, name)` re-installs in place.
 
+Note: only `requires:` triggers the missing-env warning. An `env:` block alone is descriptive and does **not** surface a warning — list the var in `requires:` too if it's mandatory.
+
 ---
 
 ## Contributing a new app
 
-1. Make a directory under `apps/<name>/` with a `string.md` and `requirement.md`.
+1. Make a directory under `apps/<name>/` with a `string.md` and `requirements.md`.
 2. Set `namespace` to your own publisher handle (not `stringhub`) and pick a `name`.
 3. Test locally: `/install ./apps/<name>` then run every action.
 4. Open a PR. We'll review for: dependencies clearly stated, every action returns useful output, no destructive operations without explicit user confirmation.
 
-If your app needs human-driven OAuth (browser login), `requirement.md` MUST tell the AI to ask the human to run the login command — agents can't complete OAuth flows themselves.
+If your app needs human-driven OAuth (browser login), `requirements.md` MUST tell the AI to ask the human to run the login command — agents can't complete OAuth flows themselves.
 
 ---
 
