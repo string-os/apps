@@ -29,13 +29,13 @@ Manage your GitHub workflow without leaving String. Issues, pull requests, repos
 - `/act.notifications` — unread notifications
 
 ```act.my_issues
-CLI gh search issues --assignee @me --state open --limit 20 --json repository,number,title,updatedAt --template '{{range .}}### {{.repository.nameWithOwner}}#{{.number}}: {{.title}}{{"\n"}}- **Updated:** {{.updatedAt}}{{"\n\n"}}{{end}}'
+CLI gh search issues --assignee @me --state open --limit 20 --json repository,number,title,updatedAt --template '{{if .}}{{range .}}### {{.repository.nameWithOwner}}#{{.number}}: {{.title}}{{"\n"}}- **Updated:** {{.updatedAt}}{{"\n\n"}}{{end}}{{else}}No open issues assigned to you.{{end}}'
 ```
 
 ```act.my_prs
-CLI gh search prs --author @me --state open --limit 20 --json repository,number,title,updatedAt --template '{{range .}}### {{.repository.nameWithOwner}}#{{.number}}: {{.title}}{{"\n"}}- **Updated:** {{.updatedAt}}{{"\n\n"}}{{end}}'
+CLI gh search prs --author @me --state open --limit 20 --json repository,number,title,updatedAt --template '{{if .}}{{range .}}### {{.repository.nameWithOwner}}#{{.number}}: {{.title}}{{"\n"}}- **Updated:** {{.updatedAt}}{{"\n\n"}}{{end}}{{else}}No open pull requests authored by you.{{end}}'
 ```
 
 ```act.notifications
-CLI gh api notifications --jq '.[] | "### \(.subject.title)\n- **Repo:** \(.repository.full_name)\n- **Type:** \(.subject.type)\n- **Reason:** \(.reason)\n- **Updated:** \(.updated_at)\n"' 2>/dev/null || echo "No unread notifications."
+CLI out=$(gh api notifications --jq '.[] | "### \(.subject.title)\n- **Repo:** \(.repository.full_name)\n- **Type:** \(.subject.type)\n- **Reason:** \(.reason)\n- **Updated:** \(.updated_at)\n"' 2>/dev/null); echo "${out:-No unread notifications.}"
 ```

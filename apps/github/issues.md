@@ -14,7 +14,7 @@ Create, search, and manage GitHub issues.
 - `/act.search_issues --query <github-search-syntax> [--limit 20]` — cross-repo search (e.g. `is:open label:bug repo:owner/repo`)
 
 ```act.list_issues
-CLI gh issue list --repo {repo} --state {state} --limit {limit} --json number,title,state,labels,assignees,createdAt --template '{{range .}}### #{{.number}}: {{.title}}{{"\n"}}- **State:** {{.state}}{{"\n"}}- **Labels:** {{range .labels}}{{.name}} {{end}}{{"\n"}}- **Assignees:** {{range .assignees}}{{.login}} {{end}}{{"\n"}}- **Created:** {{.createdAt}}{{"\n\n"}}{{end}}'
+CLI gh issue list --repo {repo} --state {state} --limit {limit} --json number,title,state,labels,assignees,createdAt --template '{{if .}}{{range .}}### #{{.number}}: {{.title}}{{"\n"}}- **State:** {{.state}}{{"\n"}}- **Labels:** {{range .labels}}{{.name}} {{end}}{{"\n"}}- **Assignees:** {{range .assignees}}{{.login}} {{end}}{{"\n"}}- **Created:** {{.createdAt}}{{"\n\n"}}{{end}}{{else}}No matching issues.{{end}}'
   repo: string (required) "Repository (e.g. owner/repo)"
   state: string (optional) "open|closed|all" = "open"
   limit: number (optional) "Max results" = "20"

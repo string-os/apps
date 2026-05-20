@@ -14,7 +14,7 @@ Create, review, and manage pull requests.
 - `/act.review_pr --repo <owner/repo> --number <n> --body <text> --event approve|request-changes|comment` — submit a review
 
 ```act.list_prs
-CLI gh pr list --repo {repo} --state {state} --limit {limit} --json number,title,state,headRefName,author,reviewDecision,additions,deletions,updatedAt --template '{{range .}}### #{{.number}}: {{.title}}{{"\n"}}- **Branch:** {{.headRefName}} · **Author:** {{.author.login}}{{"\n"}}- **Review:** {{.reviewDecision}} · **+{{.additions}} -{{.deletions}}**{{"\n"}}- **Updated:** {{.updatedAt}}{{"\n\n"}}{{end}}'
+CLI gh pr list --repo {repo} --state {state} --limit {limit} --json number,title,state,headRefName,author,reviewDecision,additions,deletions,updatedAt --template '{{if .}}{{range .}}### #{{.number}}: {{.title}}{{"\n"}}- **Branch:** {{.headRefName}} · **Author:** {{.author.login}}{{"\n"}}- **Review:** {{.reviewDecision}} · **+{{.additions}} -{{.deletions}}**{{"\n"}}- **Updated:** {{.updatedAt}}{{"\n\n"}}{{end}}{{else}}No matching pull requests.{{end}}'
   repo: string (required) "Repository (e.g. owner/repo)"
   state: string (optional) "open|closed|merged|all" = "open"
   limit: number (optional) "Max results" = "20"
