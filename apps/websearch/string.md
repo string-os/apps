@@ -1,21 +1,24 @@
 ---
 name: websearch
 namespace: stringhub
-version: 1.0.0
+version: 1.0.2
 description: Web search across multiple engines. DuckDuckGo, Wikipedia, and Hacker News. No API key required.
 tags: [search, web, duckduckgo, wikipedia, hacker-news, research]
 type: app
 ---
 
+[!requirements](./requirements.md)
+
 # Web Search
 
-Search the web from String. DuckDuckGo for general search, Wikipedia for knowledge, Hacker News for tech trends. No API key needed.
+Search the web from String. DuckDuckGo for general queries, Wikipedia for encyclopedia entries, Hacker News for tech news. No API key.
 
----
+## Actions
 
-## Web Search (DuckDuckGo)
-
-`/act.search --query "string flavored markdown"`
+- `/act.search --query <text>` — DuckDuckGo instant answer (best for factual queries)
+- `/act.wiki --query <article-title>` — Wikipedia article summary (use exact capitalized title)
+- `/act.hn` — Hacker News front page (top 10)
+- `/act.hn_search --query <text> [--hitsPerPage 10]` — Hacker News search
 
 ```act.search
 GET https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1
@@ -30,12 +33,6 @@ GET https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1
 **Source:** {Response.body.AbstractURL}
 ```
 
----
-
-## Wikipedia
-
-`/act.wiki --query "Markdown"`
-
 ```act.wiki
 GET https://en.wikipedia.org/api/rest_v1/page/summary/{query}
   query: string (required) "Article title (e.g. Markdown, Python, Seoul)"
@@ -49,12 +46,6 @@ GET https://en.wikipedia.org/api/rest_v1/page/summary/{query}
 **Read more:** {Response.body.content_urls.desktop.page}
 ```
 
----
-
-## Hacker News — Top Stories
-
-`/act.hn`
-
 ```act.hn
 GET https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=10
 ```
@@ -62,14 +53,10 @@ GET https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=10
 ```act.hn.response
 ## Hacker News — Front Page
 
-{Response.body.nbHits} stories on front page.
+for: hit in Response.body.hits
+- **{hit.title}** ({hit.points} pts, {hit.num_comments} comments) — https://news.ycombinator.com/item?id={hit.objectID}
+end:
 ```
-
----
-
-## Hacker News — Search
-
-`/act.hn_search --query "AI agents"`
 
 ```act.hn_search
 GET https://hn.algolia.com/api/v1/search?tags=story
@@ -78,17 +65,9 @@ GET https://hn.algolia.com/api/v1/search?tags=story
 ```
 
 ```act.hn_search.response
-## Hacker News Results
+## Hacker News — Results
 
-{Response.body.nbHits} results found.
+for: hit in Response.body.hits
+- **{hit.title}** ({hit.points} pts, {hit.num_comments} comments) — https://news.ycombinator.com/item?id={hit.objectID}
+end:
 ```
-
----
-
-## Tips
-
-- DuckDuckGo instant answers work best for factual queries
-- Wikipedia search uses exact article titles — try capitalized proper names
-- Hacker News top stories refresh every few minutes
-- All APIs are free with no rate limits for normal usage
-- Requires: `curl`, `python3` (pre-installed on most systems)

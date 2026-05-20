@@ -11,14 +11,15 @@ This is the source repo. Apps published from here also appear in the [StringHub 
 | App | What it does | Key dependencies | Auth |
 |---|---|---|---|
 | [translate](./apps/translate/) | Translate text between languages (MyMemory API) | none | none |
-| [websearch](./apps/websearch/) | Search Wikipedia, Hacker News, DuckDuckGo | `curl`, `python3` | none |
+| [websearch](./apps/websearch/) | Search Wikipedia, Hacker News, DuckDuckGo | none | none |
 | [weather](./apps/weather/) | Current weather, forecast, city lookup (Open-Meteo) | none | none |
 | [github](./apps/github/) | Issues, PRs, repos, notifications via `gh` CLI | `gh` | `gh auth login` (one-time, human) |
 | [youtube](./apps/youtube/) | Video metadata + transcript via `yt-dlp` | `yt-dlp` | none |
 | [humanizer](./apps/humanizer/) | Detect AI-writing patterns and suggest fixes | `python3` | none |
 | [docx](./apps/docx/) | Word/PDF read/write, format conversion via `pandoc` | `pandoc` (+ optional `wkhtmltopdf`, `pdftotext`, `libreoffice`) | none |
 | [whisper](./apps/whisper/) | Local speech-to-text with OpenAI Whisper | `whisper`, `ffmpeg` | none |
-| [notion](./apps/notion/) | Search, read, create Notion pages and databases | `curl`, `python3` | `$NOTION_TOKEN` |
+| [notion](./apps/notion/) | Search, read, write, comment on pages; query databases | `curl`, `python3` | `$NOTION_TOKEN` |
+| [google](./apps/google/) | Gmail, Calendar, Drive via gcloud ADC + REST APIs | `gcloud` | `gcloud auth login` (one-time, human) |
 
 Every app has a `requirement.md` that spells out exactly what to install and how to authenticate. Agents should read it before running any action.
 

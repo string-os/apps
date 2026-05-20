@@ -1,23 +1,21 @@
 ---
 name: translate
 namespace: stringhub
-version: 1.0.0
+version: 1.0.1
 description: Translate text between languages using MyMemory API. No API key required.
 tags: [translate, language, multilingual, productivity]
 type: app
 ---
 
+[!requirements](./requirements.md)
+
 # Translate
 
-Translate text between any language pair. Powered by MyMemory (free, no API key).
+Translate text between any language pair. Powered by [MyMemory](https://mymemory.translated.net) (free, no API key).
 
-**Usage:**
+## Actions
 
-`/act.translate --text "Hello world" --from "en" --to "ko"`
-
----
-
-## Translate Text
+- `/act.translate --text <string> --from <code> --to <code>` — translate between two ISO 639-1 codes (e.g. `en`, `ko`, `ja`, `zh`, `es`, `fr`, `de`)
 
 ```act.translate
 GET https://api.mymemory.translated.net/get?q={text}&langpair={from}|{to}
@@ -34,33 +32,3 @@ GET https://api.mymemory.translated.net/get?q={text}&langpair={from}|{to}
 - **Match quality:** {Response.body.responseData.match}
 - **Status:** {Response.body.responseStatus}
 ```
-
-    /act.translate --text "Good morning" --from "en" --to "ko"
-    /act.translate --text "오늘 날씨가 좋다" --from "ko" --to "en"
-    /act.translate --text "Bonjour le monde" --from "fr" --to "ja"
-
----
-
-## Language Codes
-
-| Code | Language | Code | Language |
-|------|----------|------|----------|
-| en | English | ko | Korean |
-| ja | Japanese | zh | Chinese |
-| es | Spanish | fr | French |
-| de | German | pt | Portuguese |
-| it | Italian | ru | Russian |
-| ar | Arabic | hi | Hindi |
-| vi | Vietnamese | th | Thai |
-| nl | Dutch | sv | Swedish |
-
-Full list: [ISO 639-1 codes](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
-
----
-
-## Tips
-
-- Supports 200+ language pairs
-- No API key needed (rate limit: ~5000 chars/day for anonymous)
-- For heavy usage, register at mymemory.translated.net for a free API key
-- Best for short texts (sentences, phrases). For documents, split into paragraphs

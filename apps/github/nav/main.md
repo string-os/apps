@@ -3,4 +3,4 @@
 [@prs Pull Requests](../prs.md)
 [@repos Repos](../repos.md)
 [@actions Actions](../actions.md)
-[@requirement Requirements](../requirement.md)
+[@requirement Requirements](../requirements.md)
