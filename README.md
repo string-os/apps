@@ -1,6 +1,6 @@
 # String Apps
 
-A curated collection of production-grade String apps for the [String](https://github.com/string-os/string) runtime. Each app is a self-contained markdown document (or directory) the agent installs once and uses through `/open` and `/act`.
+A curated collection of ready-to-use String apps for the [String](https://github.com/string-os/string) runtime. Each app is a self-contained markdown document (or directory) the agent installs once and uses through `/open` and `/act`.
 
 This is the source repo. Apps published from here also appear in the [StringHub marketplace](https://stringhub.org) under the `stringhub` namespace.
 
