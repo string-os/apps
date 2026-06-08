@@ -1,0 +1,7 @@
+[@home Home / Receipt Stats](../string.md)
+[@imageocr Image OCR (Tesseract)](../image-ocr.md)
+[@vision OpenAI Vision OCR](../openai-vision.md)
+[@pdf PDF → text / images](../pdf.md)
+[@video Video → frames](../video-frame-extraction.md)
+[@xlsx XLSX read / write](../xlsx.md)
+[@requirements Requirements](../requirements.md)
