@@ -2,16 +2,17 @@
 
 Multi-cut Instagram comic generator with per-toon **style + tone** customization. Each comic is a *titled* series — character → N-cut storyboard (you write it) → N rendered cuts → 2×2 grids → upload-ready bundle. All outputs for one comic live in `out/<title>/`.
 
-## v0.5 — you write the storyboard
+## What's new
 
-`/act.storyboard` no longer calls Claude. The action returns a writing protocol (structure + format + rules + parameters). You write the storyboard yourself and save it to disk. Why:
+**v0.6 — sharper character consistency.** Render now sends two reference images
+to Gemini (master character sheet + previous panel) and the prompt explicitly
+lists which features to preserve (face shape, eyes, hair, accessories, clothing).
+Chain `--prev_ref` to the previous cut for the best results — drift across a
+12-cut series drops noticeably.
 
-- You have full context of the user's intent
-- No extra API cost (~$0.05/storyboard saved)
-- Direct control — easy to iterate, override, fix on the spot
-- One fewer external dependency (no `ANTHROPIC_API_KEY`)
-
-Everything else is unchanged.
+**v0.5 — you write the storyboard.** `/act.storyboard` returns a writing protocol
+instead of calling Claude. You write the script yourself and save it to disk. No
+`ANTHROPIC_API_KEY` needed.
 
 ## Two tuning knobs
 
@@ -56,8 +57,14 @@ string app:instatoon "/act.storyboard --title $TITLE --topic 'A cat learns to ma
 #  ~/.string/users/default/apps/instatoon/out/morning-coffee/storyboard.txt)
 
 # Render 12 cuts (reads storyboard.txt at render time)
-for k in 1 2 3 4 5 6 7 8 9 10 11 12; do
-  string app:instatoon "/act.render --title $TITLE --cut $k"
+# Chain each cut's --prev_ref to the previous cut for the best consistency.
+# Note: String CLI rejects literal `$VAR` in command args — bash must expand
+# the path to an absolute string BEFORE the string CLI sees it.
+TOON_DIR="$HOME/.string/users/default/apps/instatoon/out/$TITLE"
+string app:instatoon "/act.render --title $TITLE --cut 1"
+for k in 2 3 4 5 6 7 8 9 10 11 12; do
+  PREV=$((k - 1))
+  string app:instatoon "/act.render --title $TITLE --cut $k --prev_ref $TOON_DIR/cut-$PREV.png"
 done
 
 string app:instatoon "/act.grid --title $TITLE --cuts '1,2,3,4'"
@@ -77,8 +84,11 @@ TONE="mock-serious detective monologue"
 string app:instatoon "/act.character --title $TITLE --name Detective_Rio --description '40s, trench coat, short hair, tired eyes' --style \"$STYLE\""
 string app:instatoon "/act.storyboard --title $TITLE --topic 'A rookie detective revisits a 7-year cold case and finds the missing clue' --cuts 12 --tone \"$TONE\" --style \"$STYLE\""
 
-for k in 1 2 3 4 5 6 7 8 9 10 11 12; do
-  string app:instatoon "/act.render --title $TITLE --cut $k --style \"$STYLE\""
+TOON_DIR="$HOME/.string/users/default/apps/instatoon/out/$TITLE"
+string app:instatoon "/act.render --title $TITLE --cut 1 --style \"$STYLE\""
+for k in 2 3 4 5 6 7 8 9 10 11 12; do
+  PREV=$((k - 1))
+  string app:instatoon "/act.render --title $TITLE --cut $k --style \"$STYLE\" --prev_ref $TOON_DIR/cut-$PREV.png"
 done
 
 string app:instatoon "/act.grid --title $TITLE --cuts '1,2,3,4'"
@@ -177,7 +187,7 @@ Upload to Instagram manually from `bundle/`.
 |---|---|---|---|
 | `/act.character` | `--title`, `--name`, `--description` | `--style`, `--filename` | `out/<title>/character.png` (Gemini API) |
 | `/act.storyboard` | `--title`, `--topic` | `--cuts`, `--tone`, `--style`, `--character` | **writing protocol** → you write `out/<title>/storyboard.txt` |
-| `/act.render` | `--title`, `--cut` | `--style`, `--character`, `--storyboard`, `--filename` | `out/<title>/cut-<N>.png` (Gemini API) |
+| `/act.render` | `--title`, `--cut` | `--style`, `--character`, `--prev_ref`, `--storyboard`, `--filename` | `out/<title>/cut-<N>.png` (Gemini API) |
 | `/act.grid` | `--title`, `--cuts` (4-tuple) | — | `out/<title>/grid-<cuts>.png` (local Python) |
 | `/act.export` | `--title` | `--caption` | `out/<title>/bundle/` (local bash) |
 
