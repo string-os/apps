@@ -51,11 +51,11 @@ One app, many comic series — each `--title` is its own subfolder.
 
 For a 4-cut single-grid version: ~$0.20.
 
-## Prompt tips (from gpters/눈오지 case study)
+## Prompt tips
 
 When writing character descriptions:
-1. **Mention species/identifying trait** — e.g. "눈오지는 눈사람 캐릭터", "보리는 골든리트리버"
-2. **Express emotion through action** — never "슬프다" (sad), always "눈에서 눈물이 또르르" (a tear rolls down)
+1. **Mention species / identifying trait** — e.g. "a snowman character", "a golden retriever puppy"
+2. **Express emotion through action** — never "she is sad", always "a tear rolls down her cheek"
 
 These two rules alone produce dramatically more consistent and expressive output.
 
@@ -63,16 +63,16 @@ These two rules alone produce dramatically more consistent and expressive output
 
 Two tuning knobs on top of the structural workflow:
 
-- `--style` (visual) — applied at character ref, storyboard 시각 메모 hints, every rendered cut.
+- `--style` (visual) — applied at character ref, storyboard visual-note hints, every rendered cut.
 - `--tone` (narrative voice) — applied at storyboard text only.
 
-Both default to `soft pastel kawaii` + `친근한 일기체` for a generic kawaii instatoon. Override per toon for noir, minimalist, kids comic, etc. See README for preset table.
+Both default to `soft pastel kawaii` + `warm conversational blog voice` for a generic kawaii instatoon. Override per toon for noir, minimalist, kids comic, etc. See README for preset table.
 
 **Consistency rule:** within one `--title` series, pass the same `--style` to `/act.character`, `/act.storyboard`, and every `/act.render` — otherwise the character ref and rendered cuts drift visually.
 
 ## Multi-language note
 
-Storyboard defaults are Korean (`친근한 일기체`). For English:
+Storyboard text follows whatever language you write `--topic` and `--tone` in. A Korean topic produces Korean speech bubbles; an English topic produces English ones. Example for English:
 ```
 /act.storyboard --title T --topic "..." --tone "casual english blog voice"
 ```
