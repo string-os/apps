@@ -22,6 +22,7 @@ This is the source repo. Apps published from here also appear in the [StringHub 
 | [google](./apps/google/) | Gmail, Calendar, Drive via gcloud ADC + REST APIs | `gcloud` | `gcloud auth login` (one-time, human) |
 | [gh-kanban](./apps/gh-kanban/) | View a GitHub Projects v2 board as text | `gh` | `gh auth login` + `OWNER`/`PROJECT_NUMBER` |
 | [appkit](./apps/appkit/) | Scaffold, validate, and learn to write String apps | none | none |
+| [instatoon](./apps/instatoon/) | Multi-cut Instagram comic (인스타툰) — character → storyboard → cuts → 2×2 grid → bundle | `python3` + `pillow` | `$GEMINI_API_KEY` |
 
 Every app has a `requirements.md` that spells out exactly what to install and how to authenticate. Agents should read it before running any action.
 
