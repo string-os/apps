@@ -6,17 +6,22 @@ Used by /act.render. Builds the Gemini multipart body dynamically so we can pass
 N character refs (one per character that appears in the cut) plus an optional
 "previous panel" reference for sequence consistency.
 
-Usage:
-  render.py <title_dir> <cut> <characters_csv> <prev_ref|""> <style> <output_path> <storyboard_path>
+This wrapper computes its own output filename (cut-N.png) from <title_dir> +
+<cut>, so string.md doesn't have to template the filename field across other
+fields.
 
-  title_dir       e.g. ~/.string/users/default/apps/instatoon/out/marathon
-  cut             cut number (string ok)
-  characters_csv  comma-separated character names. Reads <title_dir>/character-<name>.png for each.
-                  If empty string, falls back to <title_dir>/character.png (single-character toons).
-  prev_ref        absolute path to the previously rendered cut. Empty string to skip.
+Usage:
+  render.py <title_dir> <cut> <characters_csv> <prev_ref|""> <style>
+
+  title_dir       absolute path to the toon's out directory.
+                  SFMD passes `$HOME/apps/instatoon/out/<title>` and the daemon
+                  expands $HOME before this script runs.
+  cut             cut number (integer)
+  characters_csv  comma-separated character names. Reads
+                  <title_dir>/character-<name>.png for each. Empty falls back
+                  to <title_dir>/character.png for single-character toons.
+  prev_ref        absolute path to the previously rendered cut, or empty.
   style           visual style hint
-  output_path     where to save the resulting PNG
-  storyboard_path absolute path to storyboard.txt
 """
 
 import base64
@@ -33,11 +38,14 @@ def b64(path: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 8:
-        print(f"✗ Usage: {sys.argv[0]} <title_dir> <cut> <characters_csv> <prev_ref> <style> <output> <storyboard>", file=sys.stderr)
+    if len(sys.argv) != 6:
+        print(f"✗ Usage: {sys.argv[0]} <title_dir> <cut> <characters_csv> <prev_ref> <style>", file=sys.stderr)
         return 1
 
-    title_dir, cut, characters_csv, prev_ref, style, output, storyboard_path = sys.argv[1:8]
+    title_dir, cut, characters_csv, prev_ref, style = sys.argv[1:6]
+    os.makedirs(title_dir, exist_ok=True)
+    output = os.path.join(title_dir, f"cut-{cut}.png")
+    storyboard_path = os.path.join(title_dir, "storyboard.txt")
 
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
@@ -52,7 +60,6 @@ def main() -> int:
     char_paths = []
     char_names = [n.strip() for n in characters_csv.split(",") if n.strip()]
     if not char_names:
-        # Backwards-compat: single character toon, look for plain character.png.
         single = os.path.join(title_dir, "character.png")
         if not os.path.isfile(single):
             print(f"✗ No --characters given and no fallback {single}", file=sys.stderr)
@@ -70,7 +77,6 @@ def main() -> int:
 
     parts = []
 
-    # All character references first, each labelled by name in a preceding text part.
     char_label_text = (
         "Reference images for the characters in this comic. Treat each one as "
         "ground truth for the character it depicts. Preserve their face shape, "
@@ -83,7 +89,6 @@ def main() -> int:
     for path in char_paths:
         parts.append({"inlineData": {"mimeType": "image/jpeg", "data": b64(path)}})
 
-    # Optional: previous-panel reference for sequence consistency.
     if prev_ref:
         if not os.path.isfile(prev_ref):
             print(f"✗ --prev_ref path does not exist: {prev_ref}", file=sys.stderr)
@@ -95,7 +100,6 @@ def main() -> int:
         })
         parts.append({"inlineData": {"mimeType": "image/jpeg", "data": b64(prev_ref)}})
 
-    # Render instructions.
     instruction = (
         f"You are illustrating one panel of an instatoon (Instagram comic). "
         f"Render ONLY cut #{cut}.\n\n"
@@ -129,7 +133,6 @@ def main() -> int:
     )
     parts.append({"text": instruction})
 
-    # Storyboard text as its own part — guarantees auto JSON-escape isn't needed.
     with open(storyboard_path, "r", encoding="utf-8") as f:
         parts.append({"text": f.read()})
 
@@ -160,30 +163,20 @@ def main() -> int:
         print(f"✗ Gemini HTTP {e.code}: {msg}", file=sys.stderr)
         return 1
 
-    # Extract image bytes.
     try:
-        candidates = payload["candidates"]
-        parts_out = candidates[0]["content"]["parts"]
-        img_part = next(p for p in parts_out if "inlineData" in p)
-        img_b64 = img_part["inlineData"]["data"]
+        img_b64 = next(
+            p for p in payload["candidates"][0]["content"]["parts"]
+            if "inlineData" in p
+        )["inlineData"]["data"]
     except (KeyError, StopIteration) as e:
         print(f"✗ Could not find image in response: {e}", file=sys.stderr)
         print(json.dumps(payload, indent=2)[:1000], file=sys.stderr)
         return 1
 
-    os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
     img_bytes = base64.b64decode(img_b64)
     with open(output, "wb") as f:
         f.write(img_bytes)
-    # Verify the write actually persisted (catch silent stub-fs / chroot weirdness).
-    try:
-        size = os.path.getsize(output)
-    except OSError as e:
-        print(f"✗ Wrote {len(img_bytes)} bytes but stat({output}) failed: {e}", file=sys.stderr)
-        return 1
-    if size != len(img_bytes):
-        print(f"✗ Write size mismatch: expected {len(img_bytes)}, on disk {size}", file=sys.stderr)
-        return 1
+    size = os.path.getsize(output)
 
     print(f"Cut {cut} rendered → {output} ({size} bytes)")
     print(f"  characters: {', '.join(char_names)}")

@@ -139,24 +139,19 @@ else is open.
 ---
 
 ```act.character
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent -H "x-goog-api-key: $GEMINI_API_KEY" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"Character reference sheet for an instatoon, white background, single character: {description}. Character name: {name}. Visual style: {style}. Show the character in a neutral pose, expressing emotion through body language. High consistency, recognizable silhouette."}]}],"generationConfig":{"responseModalities":["TEXT","IMAGE"],"imageConfig":{"imageSize":"1K","aspectRatio":"1:1"}}}'
+CLI GEMINI_API_KEY=$GEMINI_API_KEY python3 $HOME/packages/instatoon/character.py $HOME/apps/instatoon/out/{title} {name} {description} {style}
   title, -T: string (required) "Toon slug (folder name)"
   name, -n: string (required) "Character name (slug — used in the filename and in --characters)"
   description, -d: string (required) "Visual description (mention species/identifying traits)"
   style, -y: string "Art style — keep it consistent across storyboard/render" = "soft pastel kawaii, clean line art, light shadow"
-  filename, -f: string "Output PNG path" = "$HOME/apps/instatoon/out/{title}/character-{name}.png"
 ```
 
 ```act.character.response
-save: candidates[0].content.parts[0].inlineData.data
-decode: base64
-to: {filename}
+{Response.body}
 {character_name} = {name}
 {character_description} = {description}
-Character "{name}" for toon "{title}" saved → {filename}
-  style applied: {style}
 
-next: /act.character (add more characters) · /act.storyboard --title {title} --topic "..." --cuts 12 --style "{style}"
+next: /act.character --title {title} --name <next-char> ... (add more characters) · /act.storyboard --title {title} --topic "..." --cuts 12 --style "{style}"
 ```
 
 ---
@@ -175,7 +170,7 @@ CLI echo "storyboard protocol delivered for {title}"
 # 📋 Storyboard writing protocol — {title}
 
 **You (the calling LLM) write the storyboard yourself, then save it to:**
-`~/.string/users/default/apps/instatoon/out/{title}/storyboard.txt`
+`~/.string/agents/default/apps/instatoon/out/{title}/storyboard.txt`
 
 ## Parameters
 
@@ -213,7 +208,7 @@ CLI echo "storyboard protocol delivered for {title}"
 
 1. Write the storyboard text following structure + format + rules above.
 2. Save with the Write tool to:
-   `~/.string/users/default/apps/instatoon/out/{title}/storyboard.txt`
+   `~/.string/agents/default/apps/instatoon/out/{title}/storyboard.txt`
 3. (Optional) Self-review: are the cuts well-distributed? Is the tone consistent?
    Do visual notes match the {style}?
 
@@ -230,13 +225,12 @@ next: /act.render --title {title} --cut 1 --style "{style}", ... --cut {cuts}
 ---
 
 ```act.render
-CLI GEMINI_API_KEY=$GEMINI_API_KEY python3 $HOME/packages/instatoon/render.py $HOME/apps/instatoon/out/{title} {cut} {characters} {prev_ref} {style} {filename} $HOME/apps/instatoon/out/{title}/storyboard.txt
+CLI GEMINI_API_KEY=$GEMINI_API_KEY python3 $HOME/packages/instatoon/render.py $HOME/apps/instatoon/out/{title} {cut} {characters} {prev_ref} {style}
   title, -T: string (required) "Toon slug"
   cut, -c: number (required) "Cut number"
   characters: string "CSV of character names that appear in this cut (e.g. 'siyong,jukyung'). Empty falls back to character.png if it exists." = ""
   style, -y: string "Visual style — MUST match the character refs' style" = "soft pastel kawaii, clean line art, light shadow"
   prev_ref, -p: string "Previous panel path for sequence consistency. Empty for cut 1; pass the absolute path of cut-(N-1).png for N>1." = ""
-  filename, -f: string "Output PNG path" = "$HOME/apps/instatoon/out/{title}/cut-{cut}.png"
 ```
 
 ```act.render.response

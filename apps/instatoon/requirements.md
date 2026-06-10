@@ -23,7 +23,7 @@ Note: as of v0.5, `/act.storyboard` no longer calls Claude — the agent writes 
 
 ## Output location
 
-All generated files land in `~/.string/users/default/apps/instatoon/out/<title>/`:
+All generated files land in `~/.string/agents/default/apps/instatoon/out/<title>/`:
 
 ```
 out/<title>/

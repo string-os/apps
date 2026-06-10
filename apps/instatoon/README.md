@@ -11,6 +11,11 @@ each cut. Single-character toons keep working without any change to the call
 shape — leave `--characters` empty and the renderer falls back to
 `character.png` if you previously made a sheet under that name.
 
+Both `/act.character` and `/act.render` now go through small Python wrappers
+(`character.py`, `render.py`) that own the Gemini API call and the output
+file path. This keeps the action declarations short and makes the workflow
+work on a vanilla String install with no patches.
+
 **v0.6 — sharper character consistency.** Render sends two reference images
 to Gemini (master character sheet + previous panel) and the prompt explicitly
 lists which features to preserve (face shape, eyes, hair, accessories,
@@ -66,7 +71,7 @@ string app:instatoon "/act.storyboard --title $TITLE --topic 'A cat learns to ma
 # Render 12 cuts (chain each cut's --prev_ref to the previous cut for consistency)
 # String CLI rejects literal `$VAR` in command args — bash must expand the path
 # to an absolute string before the string CLI sees it.
-TOON_DIR="$HOME/.string/users/default/apps/instatoon/out/$TITLE"
+TOON_DIR="$HOME/.string/agents/default/apps/instatoon/out/$TITLE"
 string app:instatoon "/act.render --title $TITLE --cut 1 --characters $NAME"
 for k in 2 3 4 5 6 7 8 9 10 11 12; do
   PREV=$((k - 1))
@@ -93,7 +98,7 @@ string app:instatoon "/act.character --title $TITLE --name informant --descripti
 
 string app:instatoon "/act.storyboard --title $TITLE --topic 'Rio meets her informant in a rainy alley. He reveals the missing clue from a 7-year cold case.' --cuts 12 --tone \"$TONE\" --style \"$STYLE\""
 
-TOON_DIR="$HOME/.string/users/default/apps/instatoon/out/$TITLE"
+TOON_DIR="$HOME/.string/agents/default/apps/instatoon/out/$TITLE"
 CHARS=rio,informant   # both characters appear in most cuts
 string app:instatoon "/act.render --title $TITLE --cut 1 --characters $CHARS --style \"$STYLE\""
 for k in 2 3 4 5 6 7 8 9 10 11 12; do
@@ -196,9 +201,9 @@ Upload to Instagram manually from `bundle/`.
 
 | Action | Required | Optional | Output |
 |---|---|---|---|
-| `/act.character` | `--title`, `--name`, `--description` | `--style`, `--filename` | `out/<title>/character-<name>.png` (Gemini API) |
+| `/act.character` | `--title`, `--name`, `--description` | `--style` | `out/<title>/character-<name>.png` (Gemini API) |
 | `/act.storyboard` | `--title`, `--topic` | `--cuts`, `--tone`, `--style`, `--character` | **writing protocol** → you write `out/<title>/storyboard.txt` |
-| `/act.render` | `--title`, `--cut` | `--characters`, `--style`, `--prev_ref`, `--filename` | `out/<title>/cut-<N>.png` (Gemini API) |
+| `/act.render` | `--title`, `--cut` | `--characters`, `--style`, `--prev_ref` | `out/<title>/cut-<N>.png` (Gemini API) |
 | `/act.grid` | `--title`, `--cuts` (4-tuple) | — | `out/<title>/grid-<cuts>.png` (local Python) |
 | `/act.export` | `--title` | `--caption` | `out/<title>/bundle/` (local bash) |
 
