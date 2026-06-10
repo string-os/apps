@@ -1,7 +1,7 @@
 ---
 name: instatoon
 namespace: stringhub
-version: 0.6.0
+version: 0.7.0
 description: Topic → multi-cut Instagram comic. Per-toon style+tone, multiple series per app, the agent writes the storyboard itself, Gemini renders the cuts.
 tags: [creator, instatoon, comic, instagram, gemini]
 type: app
@@ -61,18 +61,26 @@ Cut N            : CTA — ask for like/follow/share
 
 ## Workflow
 
-1. `/act.character --title T --name X --description "..." [--style "..."]` — once
+1. `/act.character --title T --name X --description "..." [--style "..."]` — call
+   **once per character**. Each saves to `out/T/character-{name}.png`. A multi-
+   character toon makes multiple `/act.character` calls before storyboard.
 2. `/act.storyboard --title T --topic "..." --cuts 12 [--tone "..."] [--style "..."]` —
    once. **The action returns a writing protocol; you write the storyboard yourself
-   and save it to the path the response gives you.**
-3. `/act.render --title T --cut K [--style "..."] [--prev_ref <absolute path>]` — N
-   times. Chain the previous cut into each subsequent render for better consistency:
-   - Cut 1: no `--prev_ref` (default uses character ref twice)
+   and save it to the path the response gives you.** Reference every character in
+   the storyboard so the agent knows who appears in which cut.
+3. `/act.render --title T --cut K --characters "name1,name2" [--style "..."] [--prev_ref <absolute path>]` —
+   N times. Pass the names of characters that appear in this cut.
+   - Cut 1: no `--prev_ref`
    - Cut N>1: `--prev_ref /abs/path/to/out/T/cut-(N-1).png`
 
-   Note: the path must be **absolute and pre-expanded**. The String CLI rejects
-   literal `$VAR` inside command arguments — let bash expand `$HOME` before
-   calling string.
+   Notes:
+   - `--characters` is a CSV of names previously used in `/act.character`. It
+     determines which `character-{name}.png` files are loaded as references.
+   - For a single-character toon you can omit `--characters` and the renderer
+     falls back to `character.png` if it exists. To always be explicit, pass
+     the single name.
+   - `--prev_ref` must be **absolute and pre-expanded**. The String CLI rejects
+     literal `$VAR` inside command arguments — let bash expand `$HOME` first.
 4. `/act.grid --title T --cuts "1,2,3,4"` — ⌈N/4⌉ times
 5. `/act.export --title T --caption "..."` — once
 
@@ -133,10 +141,10 @@ else is open.
 ```act.character
 POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent -H "x-goog-api-key: $GEMINI_API_KEY" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"Character reference sheet for an instatoon, white background, single character: {description}. Character name: {name}. Visual style: {style}. Show the character in a neutral pose, expressing emotion through body language. High consistency, recognizable silhouette."}]}],"generationConfig":{"responseModalities":["TEXT","IMAGE"],"imageConfig":{"imageSize":"1K","aspectRatio":"1:1"}}}'
   title, -T: string (required) "Toon slug (folder name)"
-  name, -n: string (required) "Character name"
+  name, -n: string (required) "Character name (slug — used in the filename and in --characters)"
   description, -d: string (required) "Visual description (mention species/identifying traits)"
   style, -y: string "Art style — keep it consistent across storyboard/render" = "soft pastel kawaii, clean line art, light shadow"
-  filename, -f: string "Output PNG path" = "$HOME/apps/instatoon/out/{title}/character.png"
+  filename, -f: string "Output PNG path" = "$HOME/apps/instatoon/out/{title}/character-{name}.png"
 ```
 
 ```act.character.response
@@ -148,7 +156,7 @@ to: {filename}
 Character "{name}" for toon "{title}" saved → {filename}
   style applied: {style}
 
-next: /act.storyboard --title {title} --topic "..." --cuts 12 --style "{style}"
+next: /act.character (add more characters) · /act.storyboard --title {title} --topic "..." --cuts 12 --style "{style}"
 ```
 
 ---
@@ -222,24 +230,19 @@ next: /act.render --title {title} --cut 1 --style "{style}", ... --cut {cuts}
 ---
 
 ```act.render
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent -H "x-goog-api-key: $GEMINI_API_KEY" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"inlineData":{"mimeType":"image/jpeg","data":"{character|base64file}"}},{"inlineData":{"mimeType":"image/jpeg","data":"{prev_ref|base64file}"}},{"text":"You are illustrating one panel of an instatoon (Instagram comic). Render ONLY cut #{cut}.\n\n# Character consistency (CRITICAL)\nThe FIRST reference image is the master character sheet — treat it as ground truth for who this character is.\nThe SECOND reference image is the most recently rendered panel — match its color palette, line weight, and character appearance.\nFor every cut you render, the character must look like the SAME PERSON as in both references:\n- Same face shape, eye shape and color, eyebrow style.\n- Same hairstyle and hair color (length, parting, fringe, texture).\n- Same skin tone.\n- Same accessories present in the reference (glasses, earrings, beard, scars, etc.) — never add or remove these.\n- Same clothing silhouette and palette (unless the storyboard explicitly changes outfit).\n- Same body proportions.\nIf two characters appear in the reference, keep their relative scale and distinguishing features clear.\n\n# Visual style (use throughout)\n{style}\n\n# Text rendering rules\n- Narration → render as a clean caption banner at the TOP of the panel, in the same language as the storyboard.\n- Dialogue → render the EXACT text from the storyboard inside a comic-style speech bubble next to the character. If Dialogue is \"none\", do NOT draw a speech bubble.\n- Visual note → informs composition, background, props. Never draw this text — only the scene it describes.\n- Emotion: show it through facial expression + body language + props. Never draw labels like \"sad\" or \"happy\".\n- Cut 1 (thumbnail): add a LARGE hook text overlay (the Narration line, oversized).\n- Last cut (CTA): include a subtle like/follow visual hint per Visual note.\n\n# Format\n1:1 square, white or light textured background (unless the style dictates otherwise).\n\n# Storyboard (use ONLY the section for cut #{cut})"},{"text":"{storyboard|file}"}]}],"generationConfig":{"responseModalities":["TEXT","IMAGE"],"imageConfig":{"imageSize":"1K","aspectRatio":"1:1"}}}'
+CLI GEMINI_API_KEY=$GEMINI_API_KEY python3 $HOME/packages/instatoon/render.py $HOME/apps/instatoon/out/{title} {cut} {characters} {prev_ref} {style} {filename} $HOME/apps/instatoon/out/{title}/storyboard.txt
   title, -T: string (required) "Toon slug"
   cut, -c: number (required) "Cut number"
-  style, -y: string "Visual style — MUST match the character ref's style" = "soft pastel kawaii, clean line art, light shadow"
-  character: string "Character ref PNG (the master sheet)" = "$HOME/apps/instatoon/out/{title}/character.png"
-  prev_ref, -p: string "Previous panel for sequence consistency. For cut 1 leave default (uses character ref again). For cut N>1 pass the previous cut's path." = "$HOME/apps/instatoon/out/{title}/character.png"
-  storyboard: string "Storyboard text path (read at render time)" = "$HOME/apps/instatoon/out/{title}/storyboard.txt"
+  characters: string "CSV of character names that appear in this cut (e.g. 'siyong,jukyung'). Empty falls back to character.png if it exists." = ""
+  style, -y: string "Visual style — MUST match the character refs' style" = "soft pastel kawaii, clean line art, light shadow"
+  prev_ref, -p: string "Previous panel path for sequence consistency. Empty for cut 1; pass the absolute path of cut-(N-1).png for N>1." = ""
   filename, -f: string "Output PNG path" = "$HOME/apps/instatoon/out/{title}/cut-{cut}.png"
 ```
 
 ```act.render.response
-save: candidates[0].content.parts[0].inlineData.data
-decode: base64
-to: {filename}
-Cut {cut} of "{title}" rendered → {filename}
-  style: {style}
+{Response.body}
 
-next: /act.render --title {title} --cut <next>  ·  after the final cut: /act.grid --title {title} --cuts "1,2,3,4"
+next: /act.render --title {title} --cut <next> --characters "..." [--prev_ref ...] · /act.grid --title {title} --cuts "1,2,3,4"
 ```
 
 ---
@@ -251,7 +254,7 @@ CLI bash $HOME/packages/instatoon/grid.sh $HOME/apps/instatoon/out/{title} {cuts
 ```
 
 ```act.grid.response
-{Response.body}
+saved
 
 next: /act.grid --title {title} --cuts <next four>  ·  /act.export --title {title}
 ```
@@ -265,7 +268,7 @@ CLI bash $HOME/packages/instatoon/export.sh $HOME/apps/instatoon/out/{title} {ca
 ```
 
 ```act.export.response
-{Response.body}
+saved
 
 next: upload the bundle manually  ·  /act.character --title <new-toon> for the next series
 ```

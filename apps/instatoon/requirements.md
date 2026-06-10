@@ -17,8 +17,9 @@ Note: as of v0.5, `/act.storyboard` no longer calls Claude — the agent writes 
 
 | Package | Purpose | Install |
 |---------|---------|---------|
-| `python3` (>= 3.10) + `pillow` | 2×2 grid composition in `grid.sh` | `pip install Pillow` |
-| `jq` | JSON response parsing | `apt: jq` / `brew: jq` |
+| `python3` (>= 3.10) | Render wrapper (`render.py`) and grid composition (`grid.sh`) | usually preinstalled |
+| `pillow` | 2×2 grid composition | `pip install Pillow` |
+| `jq` | JSON response parsing in `export.sh` | `apt: jq` / `brew: jq` |
 
 ## Output location
 
@@ -26,7 +27,8 @@ All generated files land in `~/.string/users/default/apps/instatoon/out/<title>/
 
 ```
 out/<title>/
-├── character.png            # Single character reference sheet
+├── character-<name1>.png    # One ref per character (call /act.character once per character)
+├── character-<name2>.png
 ├── storyboard.txt           # N-cut script (you write it; render reads it)
 ├── cut-1.png ... cut-N.png  # Rendered cuts
 ├── grid-1,2,3,4.png         # 2×2 grid (1 per /act.grid call)
@@ -36,7 +38,9 @@ out/<title>/
     └── manifest.json
 ```
 
-One app, many comic series — each `--title` is its own subfolder.
+One app, many comic series — each `--title` is its own subfolder. Each toon can
+host multiple characters; `/act.render --characters "name1,name2"` picks the
+ones that appear in a given cut.
 
 ## Cost per instatoon (12 cuts)
 

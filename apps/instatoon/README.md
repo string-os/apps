@@ -4,15 +4,21 @@ Multi-cut Instagram comic generator with per-toon **style + tone** customization
 
 ## What's new
 
-**v0.6 — sharper character consistency.** Render now sends two reference images
-to Gemini (master character sheet + previous panel) and the prompt explicitly
-lists which features to preserve (face shape, eyes, hair, accessories, clothing).
-Chain `--prev_ref` to the previous cut for the best results — drift across a
-12-cut series drops noticeably.
+**v0.7 — multiple characters per toon.** `/act.character` now saves to
+`character-{name}.png` (one file per character), and `/act.render` takes
+`--characters "name1,name2,..."` to pull in the right reference images for
+each cut. Single-character toons keep working without any change to the call
+shape — leave `--characters` empty and the renderer falls back to
+`character.png` if you previously made a sheet under that name.
 
-**v0.5 — you write the storyboard.** `/act.storyboard` returns a writing protocol
-instead of calling Claude. You write the script yourself and save it to disk. No
-`ANTHROPIC_API_KEY` needed.
+**v0.6 — sharper character consistency.** Render sends two reference images
+to Gemini (master character sheet + previous panel) and the prompt explicitly
+lists which features to preserve (face shape, eyes, hair, accessories,
+clothing). Chain `--prev_ref` to the previous cut for the best results.
+
+**v0.5 — you write the storyboard.** `/act.storyboard` returns a writing
+protocol instead of calling Claude. You write the script yourself and save
+it to disk. No `ANTHROPIC_API_KEY` needed.
 
 ## Two tuning knobs
 
@@ -44,27 +50,27 @@ string app:instatoon '/set $GEMINI_API_KEY = "AIza..."'
 # (no ANTHROPIC_API_KEY needed in v0.5)
 ```
 
-### Example 1 — Default kawaii style
+### Example 1 — Single character, kawaii style
 
 ```bash
 TITLE=morning-coffee
+NAME=luna
 
-string app:instatoon "/act.character --title $TITLE --name Luna --description 'a fluffy white cat with big eyes, wearing a tiny chef apron'"
+string app:instatoon "/act.character --title $TITLE --name $NAME --description 'a fluffy white cat with big eyes, wearing a tiny chef apron'"
 
 # Storyboard: action returns guidelines. YOU write the file using the Write tool.
 string app:instatoon "/act.storyboard --title $TITLE --topic 'A cat learns to make pour-over coffee and burns her paw' --cuts 12"
 # (LLM reads the protocol, writes the 12-cut storyboard, saves with Write tool to
 #  ~/.string/users/default/apps/instatoon/out/morning-coffee/storyboard.txt)
 
-# Render 12 cuts (reads storyboard.txt at render time)
-# Chain each cut's --prev_ref to the previous cut for the best consistency.
-# Note: String CLI rejects literal `$VAR` in command args — bash must expand
-# the path to an absolute string BEFORE the string CLI sees it.
+# Render 12 cuts (chain each cut's --prev_ref to the previous cut for consistency)
+# String CLI rejects literal `$VAR` in command args — bash must expand the path
+# to an absolute string before the string CLI sees it.
 TOON_DIR="$HOME/.string/users/default/apps/instatoon/out/$TITLE"
-string app:instatoon "/act.render --title $TITLE --cut 1"
+string app:instatoon "/act.render --title $TITLE --cut 1 --characters $NAME"
 for k in 2 3 4 5 6 7 8 9 10 11 12; do
   PREV=$((k - 1))
-  string app:instatoon "/act.render --title $TITLE --cut $k --prev_ref $TOON_DIR/cut-$PREV.png"
+  string app:instatoon "/act.render --title $TITLE --cut $k --characters $NAME --prev_ref $TOON_DIR/cut-$PREV.png"
 done
 
 string app:instatoon "/act.grid --title $TITLE --cuts '1,2,3,4'"
@@ -74,21 +80,25 @@ string app:instatoon "/act.grid --title $TITLE --cuts '9,10,11,12'"
 string app:instatoon "/act.export --title $TITLE --caption 'Luna learns pour-over ☕ #catcomic #catsofinstagram'"
 ```
 
-### Example 2 — Custom noir style
+### Example 2 — Two characters, noir style
 
 ```bash
 TITLE=case-077
 STYLE="noir, high-contrast black & white, dramatic shadows, cinematic angles"
 TONE="mock-serious detective monologue"
 
-string app:instatoon "/act.character --title $TITLE --name Detective_Rio --description '40s, trench coat, short hair, tired eyes' --style \"$STYLE\""
-string app:instatoon "/act.storyboard --title $TITLE --topic 'A rookie detective revisits a 7-year cold case and finds the missing clue' --cuts 12 --tone \"$TONE\" --style \"$STYLE\""
+# Two characters in this toon — call /act.character once for each.
+string app:instatoon "/act.character --title $TITLE --name rio       --description '40s detective, trench coat, short hair, tired eyes' --style \"$STYLE\""
+string app:instatoon "/act.character --title $TITLE --name informant --description '30s, hooded jacket, nervous eyes, smoking a cigarette' --style \"$STYLE\""
+
+string app:instatoon "/act.storyboard --title $TITLE --topic 'Rio meets her informant in a rainy alley. He reveals the missing clue from a 7-year cold case.' --cuts 12 --tone \"$TONE\" --style \"$STYLE\""
 
 TOON_DIR="$HOME/.string/users/default/apps/instatoon/out/$TITLE"
-string app:instatoon "/act.render --title $TITLE --cut 1 --style \"$STYLE\""
+CHARS=rio,informant   # both characters appear in most cuts
+string app:instatoon "/act.render --title $TITLE --cut 1 --characters $CHARS --style \"$STYLE\""
 for k in 2 3 4 5 6 7 8 9 10 11 12; do
   PREV=$((k - 1))
-  string app:instatoon "/act.render --title $TITLE --cut $k --style \"$STYLE\" --prev_ref $TOON_DIR/cut-$PREV.png"
+  string app:instatoon "/act.render --title $TITLE --cut $k --characters $CHARS --style \"$STYLE\" --prev_ref $TOON_DIR/cut-$PREV.png"
 done
 
 string app:instatoon "/act.grid --title $TITLE --cuts '1,2,3,4'"
@@ -167,7 +177,8 @@ For a 4-cut single-grid version: ~$0.20.
 
 ```
 ~/.string/users/default/apps/instatoon/out/<title>/
-├── character.png            # Single ref image (in chosen style)
+├── character-<name1>.png    # One ref per character (created by /act.character)
+├── character-<name2>.png    # ... add as many as you need
 ├── storyboard.txt           # N-cut script (in chosen tone)
 ├── cut-1.png ... cut-N.png  # rendered cuts (in chosen style)
 ├── grid-1,2,3,4.png
@@ -185,9 +196,9 @@ Upload to Instagram manually from `bundle/`.
 
 | Action | Required | Optional | Output |
 |---|---|---|---|
-| `/act.character` | `--title`, `--name`, `--description` | `--style`, `--filename` | `out/<title>/character.png` (Gemini API) |
+| `/act.character` | `--title`, `--name`, `--description` | `--style`, `--filename` | `out/<title>/character-<name>.png` (Gemini API) |
 | `/act.storyboard` | `--title`, `--topic` | `--cuts`, `--tone`, `--style`, `--character` | **writing protocol** → you write `out/<title>/storyboard.txt` |
-| `/act.render` | `--title`, `--cut` | `--style`, `--character`, `--prev_ref`, `--storyboard`, `--filename` | `out/<title>/cut-<N>.png` (Gemini API) |
+| `/act.render` | `--title`, `--cut` | `--characters`, `--style`, `--prev_ref`, `--filename` | `out/<title>/cut-<N>.png` (Gemini API) |
 | `/act.grid` | `--title`, `--cuts` (4-tuple) | — | `out/<title>/grid-<cuts>.png` (local Python) |
 | `/act.export` | `--title` | `--caption` | `out/<title>/bundle/` (local bash) |
 
