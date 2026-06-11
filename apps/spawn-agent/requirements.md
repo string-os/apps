@@ -15,7 +15,6 @@ Commands:
 
 - Agent root: `$HOME/crew`
 - Agent home: `$HOME/crew/<name>`
-- Claude MCP config: `$HOME/crew/<name>/.mcp.json`
 - Claude charter: `$HOME/crew/<name>/CLAUDE.md`
 
 Override the root with:
@@ -24,18 +23,26 @@ Override the root with:
 export SPAWN_AGENT_ROOT=/home/ubuntu/crew
 ```
 
-## Claude Code channel
+## Claude Code plugin and channel
+
+`/act.provision` ensures the String Claude Code plugin is installed:
+
+```bash
+claude plugin marketplace add string-os/string
+claude plugin install string@string-os
+```
 
 `/act.launch` starts Claude Code with:
 
 ```bash
---mcp-config <home>/.mcp.json
---dangerously-load-development-channels server:string
+STRING_AGENT_ID=<name> claude \
+  --allow-dangerously-skip-permissions \
+  --dangerously-load-development-channels plugin:string@string-os
 ```
 
-The MCP server name stays `string`, so the tool id remains stable. The selected
-String agent is controlled by `--agent <name>` inside `.mcp.json` and by
-`STRING_AGENT_ID=<name>` in the launched process.
+This matches the normal Claude Code plugin setup: the plugin provides the
+`string` MCP tool, and `STRING_AGENT_ID` selects which local String agent/home
+the session uses.
 
 ## Optional Discord channel
 

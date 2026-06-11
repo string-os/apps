@@ -2,7 +2,7 @@
 name: spawn-agent
 namespace: stringhub
 version: 0.1.0
-description: Provision and launch a local Claude Code worker with a String agent id, home, MCP config, and String channel.
+description: Provision and launch a local Claude Code worker with a String agent id, home, plugin, and String channel.
 tags: [agent, claude-code, mcp, channel, tmux, automation]
 type: app
 ---
@@ -23,10 +23,10 @@ Provision creates:
 - String agent id: `kai`
 - workspace: `$HOME/crew/kai`
 - Claude Code charter: `CLAUDE.md`
-- MCP config: `.mcp.json` with server `string`
+- Claude Code String plugin: `string@string-os`
 - tmux session: `kai`
 
-Launch starts Claude Code with String MCP and the String Claude Code channel.
+Launch starts Claude Code with the String plugin and the String Claude Code channel.
 Local webhook events for this String agent can then arrive directly in Claude
 Code, while the normal `string` MCP tool remains available.
 
