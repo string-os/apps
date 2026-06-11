@@ -3,19 +3,118 @@
 # Used by the string-app:gh-kanban for actions that need multi-step lookups.
 #
 # Usage:
-#   kanban move <owner> <project_number> <card_number> <status_name>
+#   kanban board <owner> <project_number> <status_filter> <limit>
+#   kanban columns <owner> <project_number>
+#   kanban card <card_number> <repo>
+#   kanban move <owner> <project_number> <card_number> <repo> <status_name>
+#   kanban close <card_number> <repo> <confirm>
 
 set -euo pipefail
+
+strip_outer_quotes() {
+  local value="${1:-}"
+  value="${value%\"}"
+  value="${value#\"}"
+  value="${value%\'}"
+  value="${value#\'}"
+  printf '%s' "$value"
+}
 
 cmd="${1:-}"
 shift || true
 
 case "$cmd" in
+  board)
+    owner="${1:?owner required}"
+    proj="${2:?project number required}"
+    filter="$(strip_outer_quotes "${3:-all}")"
+    limit="${4:-50}"
+
+    gh project item-list "$proj" --owner "$owner" --format json --limit 200 \
+      | jq --arg owner "$owner" --arg proj "$proj" --arg filter "$filter" --argjson limit "$limit" '
+        def status_key($s):
+          ($s // "(none)") as $v
+          | if $v == "Backlog" then "backlog"
+            elif $v == "Todo" then "todo"
+            elif $v == "Ready" then "ready"
+            elif ($v == "In progress" or $v == "In Progress" or $v == "Doing") then "in_progress"
+            elif ($v == "In review" or $v == "In Review") then "in_review"
+            elif $v == "Done" then "done"
+            else "other"
+            end;
+        def compact_item:
+          {
+            number: (.content.number // null),
+            repo: (.content.repository // ""),
+            status: (.status // "(none)"),
+            title: (.title // .content.title // "(untitled)"),
+            url: (.content.url // "")
+          };
+        def wanted:
+          if ($filter == "all" or $filter == "") then true
+          else ((.status // "(none)" | ascii_downcase) == ($filter | ascii_downcase))
+          end;
+        [.items[] | select(.content.number != null) | select(wanted) | compact_item] as $items
+        | {
+            owner: $owner,
+            project: $proj,
+            total: ($items | length),
+            limit_per_column: $limit,
+            filter: $filter,
+            summary: {
+              backlog: ([ $items[] | select(status_key(.status) == "backlog") ] | length),
+              todo: ([ $items[] | select(status_key(.status) == "todo") ] | length),
+              ready: ([ $items[] | select(status_key(.status) == "ready") ] | length),
+              in_progress: ([ $items[] | select(status_key(.status) == "in_progress") ] | length),
+              in_review: ([ $items[] | select(status_key(.status) == "in_review") ] | length),
+              done: ([ $items[] | select(status_key(.status) == "done") ] | length),
+              other: ([ $items[] | select(status_key(.status) == "other") ] | length)
+            },
+            backlog: ([ $items[] | select(status_key(.status) == "backlog") ][0:$limit]),
+            todo: ([ $items[] | select(status_key(.status) == "todo") ][0:$limit]),
+            ready: ([ $items[] | select(status_key(.status) == "ready") ][0:$limit]),
+            in_progress: ([ $items[] | select(status_key(.status) == "in_progress") ][0:$limit]),
+            in_review: ([ $items[] | select(status_key(.status) == "in_review") ][0:$limit]),
+            done: ([ $items[] | select(status_key(.status) == "done") ][0:$limit]),
+            other: ([ $items[] | select(status_key(.status) == "other") ][0:$limit])
+          }'
+    ;;
+
+  columns)
+    owner="${1:?owner required}"
+    proj="${2:?project number required}"
+
+    gh project field-list "$proj" --owner "$owner" --format json \
+      | jq '{statuses: [.fields[] | select(.name == "Status") | .options[] | {name, id}]}'
+    ;;
+
+  card)
+    card="${1:?card number required}"
+    repo="${2:?repo required}"
+
+    gh issue view "$card" --repo "$repo" \
+      --json number,title,body,state,labels,assignees,comments,updatedAt,url,author \
+      | jq '{
+          number,
+          title,
+          state,
+          repo: "'"$repo"'",
+          url,
+          updatedAt,
+          author: (.author.login // ""),
+          labels: ([.labels[].name] | join(", ")),
+          assignees: ([.assignees[].login] | join(", ")),
+          body: (.body // ""),
+          comments: [.comments[-3:][]? | {author: .author.login, createdAt, body}]
+        }'
+    ;;
+
   move)
     owner="${1:?owner required}"
     proj="${2:?project number required}"
     card="${3:?card number required}"
-    target="${4:?target status required}"
+    repo="${4:?repo required}"
+    target="$(strip_outer_quotes "${5:?target status required}")"
 
     proj_id=$(gh project view "$proj" --owner "$owner" --format json --jq '.id')
 
@@ -30,13 +129,18 @@ case "$cmd" in
       exit 1
     fi
 
-    item_id=$(gh project item-list "$proj" --owner "$owner" --format json --limit 200 \
-      | jq -r --argjson n "$card" '.items[] | select(.content.number == $n) | .id')
+    item=$(gh project item-list "$proj" --owner "$owner" --format json --limit 200 \
+      | jq -c --argjson n "$card" --arg repo "$repo" '.items[] | select(.content.number == $n and .content.repository == $repo)')
+
+    item_id=$(echo "$item" | jq -r '.id')
 
     if [ -z "$item_id" ] || [ "$item_id" = "null" ]; then
-      echo "ERROR: card #$card not in project" >&2
+      echo "ERROR: card $repo#$card not in project" >&2
       exit 1
     fi
+
+    title=$(echo "$item" | jq -r '.title // .content.title // "(untitled)"')
+    from=$(echo "$item" | jq -r '.status // "(none)"')
 
     gh project item-edit \
       --id "$item_id" \
@@ -44,12 +148,42 @@ case "$cmd" in
       --field-id "$field_id" \
       --single-select-option-id "$option_id" >/dev/null
 
-    echo "moved card-$card -> $target"
+    jq -n \
+      --arg repo "$repo" \
+      --argjson number "$card" \
+      --arg title "$title" \
+      --arg from "$from" \
+      --arg to "$target" \
+      '{repo: $repo, number: $number, title: $title, from: $from, to: $to}'
+    ;;
+
+  close)
+    card="${1:?card number required}"
+    repo="${2:?repo required}"
+    confirm="$(strip_outer_quotes "${3:-no}")"
+
+    if [ "$confirm" != "yes" ]; then
+      echo "Refusing to close $repo#$card."
+      echo
+      echo "Run: /act.close @card-N --confirm yes"
+      exit 0
+    fi
+
+    title=$(gh issue view "$card" --repo "$repo" --json title --jq '.title')
+    gh issue close "$card" --repo "$repo" >/dev/null
+
+    echo "Closed $repo#$card: $title"
+    echo
+    echo "next: /act.refresh"
     ;;
   *)
     echo "Usage: kanban <command> [args]" >&2
     echo "Commands:" >&2
-    echo "  move <owner> <project_number> <card_number> <status_name>" >&2
+    echo "  board <owner> <project_number> <status_filter> <limit>" >&2
+    echo "  columns <owner> <project_number>" >&2
+    echo "  card <card_number> <repo>" >&2
+    echo "  move <owner> <project_number> <card_number> <repo> <status_name>" >&2
+    echo "  close <card_number> <repo> <confirm>" >&2
     exit 1
     ;;
 esac

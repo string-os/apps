@@ -2,7 +2,7 @@
 name: gh-kanban
 namespace: stringhub
 version: 0.1.0
-description: View and use a GitHub Projects v2 kanban board as text. Open the app, see the board.
+description: Operate a GitHub Projects v2 kanban board as an agent-friendly text surface.
 tags: [devtools, github, projects, kanban, productivity]
 type: app
 default: board
@@ -11,17 +11,19 @@ requires: [OWNER, PROJECT_NUMBER]
 
 # GitHub Kanban
 
-Read and operate a GitHub Projects v2 board as text. Each card becomes a
-named tuple shortcut `@card-N` carrying both issue number and repo, so
-mutations take a single argument.
+Operate a GitHub Projects v2 board as an agent-friendly text surface. Each
+card becomes a named tuple shortcut `@card-N` carrying both issue number and
+repo, so mutations take a single argument without re-copying GitHub URLs.
 
 ```
-/open app:gh-kanban           # see board (default)
-/act.card @card-1             # drill into a card
-/act.move @card-1 Ready       # change status
-/act.comment @card-1 "ship"   # add a comment
-/act.close @card-1            # close the issue
-/act.refresh                  # re-fetch board
+/open app:gh-kanban                    # see board (default)
+/act.board --status "In progress"      # filter by status
+/act.card @card-1                      # drill into a card
+/act.move @card-1 Ready                # change status
+/act.comment @card-1 "ship"            # add a comment
+/act.columns                           # valid Status values
+/act.close @card-1 --confirm yes       # close the issue
+/act.refresh                           # re-fetch board
 ```
 
 Full signatures: `/act.<name> --help`.
@@ -29,52 +31,182 @@ Full signatures: `/act.<name> --help`.
 [!requirements](./requirements.md)
 
 ```act.board
-CLI gh project item-list $PROJECT_NUMBER --owner $OWNER --format json --limit 200 --jq '. as $r | ["Backlog","Todo","Ready","In progress","In Progress","Doing","In review","In Review","Done"] as $order | {total: ($r.items | length), items: ($r.items | sort_by(.status // "" | . as $s | ($order | index($s)) // 99) | map({number: (.content.number // null), repo: (.content.repository // ""), status: (.status // "(none)"), title: .title}))}'
+CLI ./kanban board $OWNER $PROJECT_NUMBER "{status}" {limit}
+  status, -s: string (optional) "Only show cards with this Status, or all" = "all"
+  limit, -l: number (optional) "Max cards per column" = "50"
 ```
 
 ```act.board.response
-# {Response.body.total} items
+# GitHub Kanban — {Response.body.owner} / Project {Response.body.project}
 
-for: it in Response.body.items
+Filter: {Response.body.filter} · Total {Response.body.total} · Limit per column {Response.body.limit_per_column}
+
+Summary: Backlog {Response.body.summary.backlog} · Todo {Response.body.summary.todo} · Ready {Response.body.summary.ready} · In progress {Response.body.summary.in_progress} · In review {Response.body.summary.in_review} · Done {Response.body.summary.done} · Other {Response.body.summary.other}
+
+## Backlog
+
+for: it in Response.body.backlog
 {@card} = ({it.number}, {it.repo})
-- {@card} [{it.status}]: {it.title}
+- {@card} {it.title}
 end:
 
-next: /act.card @card-N  ·  /act.move @card-N <status>  ·  /act.comment @card-N "..."  ·  /act.refresh
+## Todo
+
+for: it in Response.body.todo
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## Ready
+
+for: it in Response.body.ready
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## In progress
+
+for: it in Response.body.in_progress
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## In review
+
+for: it in Response.body.in_review
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## Done
+
+for: it in Response.body.done
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## Other
+
+for: it in Response.body.other
+{@card} = ({it.number}, {it.repo})
+- {@card} [{it.status}] {it.title}
+end:
+
+next: /act.card @card-N  ·  /act.move @card-N <status>  ·  /act.comment @card-N "..."  ·  /act.columns  ·  /act.refresh
 ```
 
 ```act.refresh
-CLI gh project item-list $PROJECT_NUMBER --owner $OWNER --format json --limit 200 --jq '. as $r | ["Backlog","Todo","Ready","In progress","In Progress","Doing","In review","In Review","Done"] as $order | {total: ($r.items | length), items: ($r.items | sort_by(.status // "" | . as $s | ($order | index($s)) // 99) | map({number: (.content.number // null), repo: (.content.repository // ""), status: (.status // "(none)"), title: .title}))}'
+CLI ./kanban board $OWNER $PROJECT_NUMBER all 50
 ```
 
 ```act.refresh.response
-# {Response.body.total} items
+# GitHub Kanban — {Response.body.owner} / Project {Response.body.project}
 
-for: it in Response.body.items
+Summary: Backlog {Response.body.summary.backlog} · Todo {Response.body.summary.todo} · Ready {Response.body.summary.ready} · In progress {Response.body.summary.in_progress} · In review {Response.body.summary.in_review} · Done {Response.body.summary.done} · Other {Response.body.summary.other}
+
+## Backlog
+
+for: it in Response.body.backlog
 {@card} = ({it.number}, {it.repo})
-- {@card} [{it.status}]: {it.title}
+- {@card} {it.title}
 end:
+
+## Todo
+
+for: it in Response.body.todo
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## Ready
+
+for: it in Response.body.ready
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## In progress
+
+for: it in Response.body.in_progress
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## In review
+
+for: it in Response.body.in_review
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## Done
+
+for: it in Response.body.done
+{@card} = ({it.number}, {it.repo})
+- {@card} {it.title}
+end:
+
+## Other
+
+for: it in Response.body.other
+{@card} = ({it.number}, {it.repo})
+- {@card} [{it.status}] {it.title}
+end:
+
+next: /act.card @card-N  ·  /act.move @card-N <status>  ·  /act.comment @card-N "..."  ·  /act.columns
+```
+
+```act.columns
+CLI ./kanban columns $OWNER $PROJECT_NUMBER
+```
+
+```act.columns.response
+# Status columns
+
+for: it in Response.body.statuses
+- {it.name}
+end:
+
+next: /act.board --status "<status>"  ·  /act.move @card-N <status>
 ```
 
 ```act.card
-CLI gh issue view {card[0]} --repo {card[1]} --comments
+CLI ./kanban card {card[0]} {card[1]}
   card, -c: tuple (required) "Card ref @card-N from board"
 ```
 
 ```act.card.response
-{Response.body}
+# {Response.body.repo}#{Response.body.number}: {Response.body.title}
 
-next: /act.move @card-N <status>  ·  /act.comment @card-N "..."  ·  /act.close @card-N  ·  /act.refresh
+State: {Response.body.state} · Updated: {Response.body.updatedAt}
+Author: {Response.body.author}
+Assignees: {Response.body.assignees}
+Labels: {Response.body.labels}
+URL: {Response.body.url}
+
+## Body
+
+{Response.body.body}
+
+## Recent comments
+
+for: c in Response.body.comments
+- {c.author} ({c.createdAt}): {c.body}
+end:
+
+next: /act.move @card-N <status>  ·  /act.comment @card-N "..."  ·  /act.close @card-N --confirm yes  ·  /act.refresh
 ```
 
 ```act.move
-CLI ./kanban move $OWNER $PROJECT_NUMBER {card[0]} {to}
+CLI ./kanban move $OWNER $PROJECT_NUMBER {card[0]} {card[1]} "{to}"
   card, -c: tuple (required) "Card ref @card-N from board"
   to, -t:   string (required) "Target Status option name"
 ```
 
 ```act.move.response
-{Response.body}
+Moved {Response.body.repo}#{Response.body.number}: {Response.body.title}
+
+{Response.body.from} -> {Response.body.to}
 
 next: /act.refresh
 ```
@@ -86,12 +218,17 @@ CLI gh issue comment {card[0]} --repo {card[1]} --body "{body}"
 ```
 
 ```act.comment.response
+Comment added.
+
 {Response.body}
+
+next: /act.card @card-N  ·  /act.refresh
 ```
 
 ```act.close
-CLI gh issue close {card[0]} --repo {card[1]}
+CLI ./kanban close {card[0]} {card[1]} {confirm}
   card, -c: tuple (required) "Card ref @card-N from board"
+  confirm: string (optional) "Must be yes to close the issue" = "no"
 ```
 
 ```act.close.response
