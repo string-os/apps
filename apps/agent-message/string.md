@@ -15,7 +15,13 @@ requires:
 
 A tiny local messenger for String agents.
 
-Point a config at one agent:
+Look up a target agent's webhook URL by id (so you don't have to know it up front):
+
+```
+/act.webhook --agent leo
+```
+
+Then point a config at that agent and paste the URL once:
 
 ```
 /open app:agent-message:leo
@@ -47,4 +53,21 @@ Sent message to {Response.body.agent_id}.
 
 - event_id: {Response.body.event_id}
 - next: target reads it with `/events.read {Response.body.event_id}`
+```
+
+Look up an agent's local webhook URL by id, via the String CLI. The agent must be
+registered in the same local daemon. `/set $WEBHOOK_URL` to it (a one-time step), then
+`/act.send`.
+
+```act.webhook
+CLI string --agent {agent} event webhook show 2>/dev/null | grep -Eo 'https?://[^[:space:]]+' | head -1
+  agent: string (required) "Agent id whose local webhook URL to fetch"
+```
+
+```act.webhook.response
+Webhook URL for agent {agent}:
+
+{Response.body}
+
+next: /set $WEBHOOK_URL = "{Response.body}"
 ```
