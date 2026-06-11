@@ -201,11 +201,40 @@ Upload to Instagram manually from `bundle/`.
 
 | Action | Required | Optional | Output |
 |---|---|---|---|
-| `/act.character` | `--title`, `--name`, `--description` | `--style` | `out/<title>/character-<name>.png` (Gemini API) |
+| `/act.character` | `--title`, `--name`, `--description` | `--style`, `--tone_ref` | `out/<title>/character-<name>.png` (Gemini API) |
 | `/act.storyboard` | `--title`, `--topic` | `--cuts`, `--tone`, `--style`, `--character` | **writing protocol** → you write `out/<title>/storyboard.txt` |
 | `/act.render` | `--title`, `--cut` | `--characters`, `--style`, `--prev_ref` | `out/<title>/cut-<N>.png` (Gemini API) |
 | `/act.grid` | `--title`, `--cuts` (4-tuple) | — | `out/<title>/grid-<cuts>.png` (local Python) |
 | `/act.export` | `--title` | `--caption` | `out/<title>/bundle/` (local bash) |
+
+## Cross-character tone consistency (`--tone_ref`)
+
+When a toon has more than one character, the visual treatment can drift
+between character sheets — different line weight, different shading style,
+different background framing. To prevent this, generate the second (and
+later) character with the first character's sheet as a **tone reference**:
+
+```bash
+TITLE=my-toon
+TOON_DIR="$HOME/.string/agents/default/apps/instatoon/out/$TITLE"
+STYLE="full-color Japanese manga style, sharp clean black ink linework, ..."
+
+# Character 1 defines the tone.
+string app:instatoon "/act.character --title $TITLE --name yuna --description '...' --style \"$STYLE\""
+
+# Character 2 inherits the tone from character 1's sheet.
+string app:instatoon "/act.character --title $TITLE --name haru --description '...' --style \"$STYLE\" --tone_ref $TOON_DIR/character-yuna.png"
+```
+
+The tone_ref image is passed to Gemini with an explicit instruction to
+match its color palette, lighting, line weight, screentone/shading
+texture, eye style, and hair-highlight treatment — and to **ignore** the
+subject, identity, hairstyle, clothing, and composition of the reference.
+The result: all character sheets in the same toon read like they came
+from the same illustrator's hand.
+
+For 3+ characters, keep passing the **first** character as the tone_ref
+(not the previous one) to avoid cumulative drift across the chain.
 
 ## Multi-language
 

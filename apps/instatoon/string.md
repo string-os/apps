@@ -139,11 +139,12 @@ else is open.
 ---
 
 ```act.character
-CLI GEMINI_API_KEY=$GEMINI_API_KEY python3 $HOME/packages/instatoon/character.py $HOME/apps/instatoon/out/{title} {name} {description} {style}
+CLI GEMINI_API_KEY=$GEMINI_API_KEY python3 $HOME/packages/instatoon/character.py $HOME/apps/instatoon/out/{title} {name} {description} {style} {tone_ref}
   title, -T: string (required) "Toon slug (folder name)"
   name, -n: string (required) "Character name (slug — used in the filename and in --characters)"
   description, -d: string (required) "Visual description (mention species/identifying traits)"
   style, -y: string "Art style — keep it consistent across storyboard/render" = "soft pastel kawaii, clean line art, light shadow"
+  tone_ref, -r: string "Optional: absolute path to a PNG used as a tone-only reference. Color/lighting/line-weight is matched; subject/identity is ignored. Pass the first character's PNG to keep tone consistent across characters in the same toon." = ""
 ```
 
 ```act.character.response

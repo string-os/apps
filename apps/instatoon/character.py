@@ -7,7 +7,7 @@ Used by /act.character. Wraps the Gemini API call so this app doesn't need a
 templated `filename` field default in string.md.
 
 Usage:
-  character.py <title_dir> <name> <description> <style>
+  character.py <title_dir> <name> <description> <style> [tone_ref]
 
   title_dir     absolute path to the toon's out directory.
                 SFMD passes `$HOME/apps/instatoon/out/<title>` and the daemon
@@ -15,6 +15,10 @@ Usage:
   name          character name slug (used in filename + --characters CSV)
   description   visual description (mention species / identifying traits)
   style         visual style — keep consistent across storyboard/render
+  tone_ref      (optional) absolute path to a PNG used as a TONE-only reference.
+                The model is instructed to match color/lighting/line-weight
+                but to ignore the subject of the reference. Useful for keeping
+                a unified look across all characters in the same toon.
 """
 
 import base64
@@ -26,11 +30,12 @@ import urllib.error
 
 
 def main() -> int:
-    if len(sys.argv) != 5:
-        print(f"✗ Usage: {sys.argv[0]} <title_dir> <name> <description> <style>", file=sys.stderr)
+    if len(sys.argv) not in (5, 6):
+        print(f"✗ Usage: {sys.argv[0]} <title_dir> <name> <description> <style> [tone_ref]", file=sys.stderr)
         return 1
 
     title_dir, name, description, style = sys.argv[1:5]
+    tone_ref = sys.argv[5] if len(sys.argv) == 6 else ""
     os.makedirs(title_dir, exist_ok=True)
     output = os.path.join(title_dir, f"character-{name}.png")
 
@@ -46,8 +51,26 @@ def main() -> int:
         f"through body language. High consistency, recognizable silhouette."
     )
 
+    parts = []
+    if tone_ref:
+        if not os.path.isfile(tone_ref):
+            print(f"✗ tone_ref path does not exist: {tone_ref}", file=sys.stderr)
+            return 1
+        parts.append({"text":
+            "The image that follows is provided ONLY as a tone reference. "
+            "Match its color palette, lighting mood, contrast level, line "
+            "weight, screentone/shading texture, eye style, hair-highlight "
+            "treatment, and overall rendering aesthetic. DO NOT copy any "
+            "subject, character identity, face, hairstyle, clothing, "
+            "accessories, pose, or composition from this image. Treat it "
+            "purely as a visual treatment guide."
+        })
+        with open(tone_ref, "rb") as f:
+            parts.append({"inlineData": {"mimeType": "image/png", "data": base64.b64encode(f.read()).decode("ascii")}})
+    parts.append({"text": prompt})
+
     body = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {
             "responseModalities": ["TEXT", "IMAGE"],
             "imageConfig": {"imageSize": "1K", "aspectRatio": "1:1"},
