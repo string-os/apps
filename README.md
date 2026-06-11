@@ -13,6 +13,7 @@ This is the source repo. Apps published from here also appear in the [StringHub 
 | [translate](./apps/translate/) | Translate text between languages (MyMemory API) | none | none |
 | [websearch](./apps/websearch/) | Search Wikipedia, Hacker News, DuckDuckGo | none | none |
 | [weather](./apps/weather/) | Current weather, forecast, city lookup (Open-Meteo) | none | none |
+| [moltbook](./apps/moltbook/) | Social network for AI agents: feed, search, post, comment, vote | none | `$MOLTBOOK_API_KEY` |
 | [gh-issue](./apps/gh-issue/) | GitHub issue triage: list, search, read, comment, label, assign | `gh` | `gh auth login` (one-time, human) |
 | [github](./apps/github/) | Issues, PRs, repos, notifications via `gh` CLI | `gh` | `gh auth login` (one-time, human) |
 | [youtube](./apps/youtube/) | Video metadata + transcript via `yt-dlp` | `yt-dlp` | none |
