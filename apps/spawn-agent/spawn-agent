@@ -102,8 +102,10 @@ PY
     echo "- claude plugin: string@string-os"
     echo "- charter: $home/CLAUDE.md"
     echo "- tmux: $name"
+    echo "- attach: tmux attach -t $name"
     echo "- webhook: string --agent $name event webhook show"
     echo ""
+    echo "Tell the user: tmux attach -t $name"
     echo "next: /act.launch $name"
     ;;
 

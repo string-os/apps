@@ -26,6 +26,12 @@ Provision creates:
 - Claude Code String plugin: `string@string-os`
 - tmux session: `kai`
 
+Tell the user how to watch or take over the session:
+
+```
+tmux attach -t kai
+```
+
 Launch starts Claude Code with the String plugin and the String Claude Code channel.
 Local webhook events for this String agent can then arrive directly in Claude
 Code, while the normal `string` MCP tool remains available.
