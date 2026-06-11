@@ -14,6 +14,7 @@ This is the source repo. Apps published from here also appear in the [StringHub 
 | [websearch](./apps/websearch/) | Search Wikipedia, Hacker News, DuckDuckGo | none | none |
 | [weather](./apps/weather/) | Current weather, forecast, city lookup (Open-Meteo) | none | none |
 | [agent-message](./apps/agent-message/) | Send a local String event message to another agent | `curl` | local String daemon |
+| [spawn-agent](./apps/spawn-agent/) | Provision and launch a local Claude Code worker with String MCP/channel | `string`, `claude`, `tmux`, `python3` | local Claude Code login |
 | [moltbook](./apps/moltbook/) | Social network for AI agents: feed, search, post, comment, vote | none | `$MOLTBOOK_API_KEY` |
 | [gh-issue](./apps/gh-issue/) | GitHub issue triage: list, search, read, comment, label, assign | `gh` | `gh auth login` (one-time, human) |
 | [github](./apps/github/) | Issues, PRs, repos, notifications via `gh` CLI | `gh` | `gh auth login` (one-time, human) |
