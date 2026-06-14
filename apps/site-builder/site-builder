@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# site-builder — thin wrapper over the astro-sfmd CLI + small content helpers.
+# Used by the string-app:site-builder for scaffolding human+AI (SFMD) sites.
+#
+# Usage:
+#   site-builder new <dir> <target> <blog> <docs>
+#   site-builder page <dir> <title> <path>
+#   site-builder post <dir> <title> <date>
+#   site-builder build <dir>
+#   site-builder deploy <dir> <target>
+#
+# String passes action args already shell-quoted; we strip one outer layer of
+# quotes from each (same convention as the gh-kanban helper).
+
+set -euo pipefail
+
+strip() {
+  local v="${1:-}"
+  v="${v%\"}"; v="${v#\"}"
+  v="${v%\'}"; v="${v#\'}"
+  printf '%s' "$v"
+}
+
+slugify() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' \
+    | sed -e 's/[^a-z0-9]\+/-/g' -e 's/^-\+//' -e 's/-\+$//'
+}
+
+# Resolve the astro-sfmd CLI: prefer a local/global install, else npx the package.
+run_cli() {
+  if command -v astro-sfmd >/dev/null 2>&1; then
+    astro-sfmd "$@"
+  else
+    npx -y @string-os/astro-sfmd "$@"
+  fi
+}
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  new)
+    dir="$(strip "${1:?dir required}")"
+    target="$(strip "${2:-github-pages}")"
+    blog="$(strip "${3:-false}")"
+    docs="$(strip "${4:-false}")"
+    flags=()
+    case "$target" in
+      vercel) flags+=(--vercel) ;;
+      *)      flags+=(--github-pages) ;;
+    esac
+    [ "$blog" = "true" ] && flags+=(--blog)
+    [ "$docs" = "true" ] && flags+=(--docs)
+    run_cli new "$dir" "${flags[@]}"
+    ;;
+
+  page)
+    dir="$(strip "${1:?dir required}")"
+    title="$(strip "${2:?title required}")"
+    rel="$(strip "${3:?path required}")"
+    rel="${rel#/}"; rel="${rel%.md}"
+    file="$dir/content/$rel.md"
+    if [ -e "$file" ]; then echo "ERROR: $file already exists" >&2; exit 1; fi
+    mkdir -p "$(dirname "$file")"
+    cat >"$file" <<MD
+---
+title: $title
+---
+
+# $title
+
+Write your content here.
+MD
+    echo "Created page: $file"
+    echo "Route: /$rel/   ·   agent twin: /$rel.md"
+    echo "Rebuild to publish: site-builder build $dir"
+    ;;
+
+  post)
+    dir="$(strip "${1:?dir required}")"
+    title="$(strip "${2:?title required}")"
+    date="$(strip "${3:-}")"
+    [ -z "$date" ] && date="$(date -u +%F)"
+    slug="$(slugify "$title")"
+    file="$dir/content/blog/$date-$slug.md"
+    if [ -e "$file" ]; then echo "ERROR: $file already exists" >&2; exit 1; fi
+    mkdir -p "$(dirname "$file")"
+    cat >"$file" <<MD
+---
+title: $title
+date: $date
+tags: []
+---
+
+# $title
+
+Write your post here.
+MD
+    echo "Created post: $file"
+    echo "The blog index regenerates on the next build: site-builder build $dir"
+    ;;
+
+  build)
+    dir="$(strip "${1:?dir required}")"
+    [ -d "$dir/node_modules" ] || ( cd "$dir" && npm install )
+    ( cd "$dir" && npm run build )
+    echo ""
+    echo "=== dual-output verification (dist/) ==="
+    pages=0; twins=0
+    while IFS= read -r html; do
+      pages=$((pages+1))
+      rel="${html#"$dir"/dist/}"
+      if [ "$rel" = "index.html" ]; then
+        md="$dir/dist/index.md"; label="/"
+      else
+        label="/${rel%/index.html}/"; md="$dir/dist/${rel%/index.html}.md"
+      fi
+      if [ -f "$md" ]; then
+        twins=$((twins+1)); echo "OK   ${label}  ->  HTML + .md twin"
+      else
+        echo "WARN ${label}  HTML present but no .md twin"
+      fi
+    done < <(find "$dir/dist" -name index.html 2>/dev/null | sort)
+    echo "HTML pages: $pages   ·   with .md twin: $twins"
+    if [ -f "$dir/.github/workflows/deploy.yml" ]; then
+      echo "Deploy workflow: present (.github/workflows/deploy.yml)"
+    else
+      echo "Deploy workflow: none yet — run: site-builder deploy $dir"
+    fi
+    ;;
+
+  deploy)
+    dir="$(strip "${1:?dir required}")"
+    target="$(strip "${2:-github-pages}")"
+    case "$target" in
+      vercel)
+        ( cd "$dir" && run_cli init --vercel )
+        echo ""
+        echo "Wrote middleware.ts. Import the repo in Vercel to deploy;"
+        echo "the middleware rewrites Accept: text/markdown to the .md twin."
+        ;;
+      *)
+        ( cd "$dir" && run_cli init --github-pages )
+        echo ""
+        echo "To go live on GitHub Pages:"
+        echo "  1. Push this repo to GitHub."
+        echo "  2. Settings -> Pages -> Source = 'GitHub Actions'."
+        echo "  3. Project page? set base: '/<repo>/' in astro.config.mjs and"
+        echo "     site to your Pages URL, then push to the default branch."
+        ;;
+    esac
+    ;;
+
+  *)
+    echo "Usage: site-builder {new|page|post|build|deploy} ..." >&2
+    exit 1
+    ;;
+esac
