@@ -1,7 +1,7 @@
 ---
 name: agent-message
 namespace: stringhub
-version: 0.1.0
+version: 0.2.0
 description: Send text events between local String agents.
 tags: [agent, message, event, webhook, local]
 type: app
@@ -42,6 +42,19 @@ One-off:
 
 Messages become pending String events. They are not executed as commands.
 
+## Reaching agents without a webhook (e.g. Codex)
+
+Codex workers have no String event inbox — you reach them by typing into their
+tmux session. `/act.tmux` does exactly that: it types your message into the
+agent's tmux session and presses Enter.
+
+```
+/act.tmux --agent rex --message "Port the parser, then report back."
+```
+
+The target is the agent's tmux session name (same as its agent id when spawned
+via `spawn-agent`). Watch it with `tmux attach -t <name>`.
+
 ```act.send
 CLI URL={webhook_url}; [ -z "$URL" ] && URL="$WEBHOOK_URL"; printf '%s' {message} | curl -sS -X POST -H 'Content-Type: text/plain' --data-binary @- "$URL"
   message: string (required) "Text message to send"
@@ -70,4 +83,20 @@ Webhook URL for agent {agent}:
 {Response.body}
 
 next: /set $WEBHOOK_URL = "{Response.body}"
+```
+
+Send a message to an agent that has no webhook inbox (e.g. a Codex worker) by
+typing it into the agent's tmux session. The message is sent literally, then
+Enter is pressed to submit it.
+
+```act.tmux
+CLI NAME={agent}; MSG={message}; tmux send-keys -t "$NAME" -l -- "$MSG" && tmux send-keys -t "$NAME" Enter && printf 'Typed message into tmux session: %s' "$NAME"
+  agent: string (required) "Target tmux session name (e.g. a Codex worker id)"
+  message: string (required) "Text to type into the session, followed by Enter"
+```
+
+```act.tmux.response
+{Response.body}
+
+next: watch it with `tmux attach -t <name>`
 ```
