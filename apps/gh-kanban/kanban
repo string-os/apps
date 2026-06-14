@@ -8,6 +8,7 @@
 #   kanban card <card_number> <repo>
 #   kanban move <owner> <project_number> <card_number> <repo> <status_name>
 #   kanban close <card_number> <repo> <confirm>
+#   kanban add  <owner> <project_number> <repo> <title> [body] [bodyfile] [labels]
 
 set -euo pipefail
 
@@ -176,6 +177,39 @@ case "$cmd" in
     echo
     echo "next: /act.refresh"
     ;;
+
+  add)
+    owner="${1:?owner required}"
+    proj="${2:?project number required}"
+    repo="$(strip_outer_quotes "${3:?repo required}")"
+    title="$(strip_outer_quotes "${4:?title required}")"
+    body="$(strip_outer_quotes "${5:-}")"
+    bodyfile="$(strip_outer_quotes "${6:-}")"
+    labels="$(strip_outer_quotes "${7:-}")"
+
+    # Multiline-safe: prefer a body FILE for multiline specs (CLI args truncate
+    # at newlines). --body-file reads verbatim (newlines intact).
+    if [ -n "$bodyfile" ] && [ -f "$bodyfile" ]; then
+      bodyarg=(--body-file "$bodyfile")
+    else
+      bodyarg=(--body "$body")
+    fi
+
+    # Ensure each label exists in the repo (best-effort; --force is idempotent).
+    if [ -n "$labels" ]; then
+      IFS=',' read -ra _labs <<< "$labels"
+      for _l in "${_labs[@]}"; do
+        _l="$(echo "$_l" | xargs)"   # trim
+        [ -n "$_l" ] && gh label create "$_l" --repo "$repo" --color BFD4F2 --force >/dev/null 2>&1 || true
+      done
+      url=$(gh issue create --repo "$repo" --title "$title" "${bodyarg[@]}" --label "$labels")
+    else
+      url=$(gh issue create --repo "$repo" --title "$title" "${bodyarg[@]}")
+    fi
+
+    gh project item-add "$proj" --owner "$owner" --url "$url" >/dev/null
+    echo "added: $url${labels:+  [$labels]}"
+    ;;
   *)
     echo "Usage: kanban <command> [args]" >&2
     echo "Commands:" >&2
@@ -184,6 +218,7 @@ case "$cmd" in
     echo "  card <card_number> <repo>" >&2
     echo "  move <owner> <project_number> <card_number> <repo> <status_name>" >&2
     echo "  close <card_number> <repo> <confirm>" >&2
+    echo "  add  <owner> <project_number> <repo> <title> [body] [bodyfile] [labels]" >&2
     exit 1
     ;;
 esac

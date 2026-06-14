@@ -17,6 +17,7 @@ repo, so mutations take a single argument without re-copying GitHub URLs.
 
 ```
 /open app:gh-kanban                    # see board (default)
+/act.add -r owner/repo -t "Task" -l ai:jordan      # create + assign a card
 /act.board --status "In progress"      # filter by status
 /act.card @card-1                      # drill into a card
 /act.move @card-1 Ready                # change status
@@ -233,4 +234,19 @@ CLI ./kanban close {card[0]} {card[1]} {confirm}
 
 ```act.close.response
 {Response.body}
+```
+
+```act.add
+CLI ./kanban add $OWNER $PROJECT_NUMBER {repo} {title} {body} {bodyfile} {labels}
+  repo, -r:     string (required) "owner/repo for the new issue"
+  title, -t:    string (required) "Card title"
+  body, -b:     string "Single-line body (use --bodyfile for multiline specs)" = ""
+  bodyfile, -f: string "Path to a multiline body file (preferred for task specs; preserves newlines)" = ""
+  labels, -l:   string "Comma-separated labels, e.g. ai:jordan" = ""
+```
+
+```act.add.response
+{Response.body}
+
+next: /act.refresh  ·  /act.move @card-N "In progress"
 ```
