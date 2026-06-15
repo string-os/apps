@@ -17,6 +17,17 @@ Commands:
 - Agent home: `$HOME/crew/<name>`
 - Claude charter: `$HOME/crew/<name>/CLAUDE.md`
 
+## Bundled team docs (`deps/`)
+
+Charters tell every worker to read `<root>/shared/agent-onboarding.md` (+ the
+Discord access guide) first. Those docs are bundled in `deps/` so the app is
+self-contained. On `/act.provision`, any bundled doc that is **missing** from
+`<root>/shared/` is copied there; an existing copy is never overwritten. This
+makes a fresh root (or a different machine) self-healing.
+
+`crew/shared/*.md` remains the live master. After editing it, refresh the
+bundle before committing: `cp ../../../crew/shared/agent-onboarding.md ../../../crew/shared/discord-access-guide.md deps/`.
+
 Override the root with:
 
 ```bash

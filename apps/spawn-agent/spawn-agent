@@ -31,6 +31,24 @@ ensure_claude_plugin() {
   fi
 }
 
+# Directory of this script, so we can find the docs bundled next to it.
+self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Charters tell agents to read $root/shared/agent-onboarding.md (+ the discord
+# access guide). Those docs are bundled in deps/ so the app is self-contained:
+# on provision we seed them into $root/shared/ when they're missing, without
+# clobbering an existing (possibly hand-edited) copy.
+ensure_shared_deps() {
+  local root="$1" deps="$self_dir/deps" f
+  [ -d "$deps" ] || return 0
+  install -d "$root/shared"
+  for f in "$deps"/*; do
+    [ -e "$f" ] || continue
+    local dest="$root/shared/$(basename "$f")"
+    [ -e "$dest" ] || cp "$f" "$dest"
+  done
+}
+
 root="${SPAWN_AGENT_ROOT:-$HOME/crew}"
 engine=""
 while true; do
@@ -57,6 +75,10 @@ case "$cmd" in
     esac
     home="$root/$name"
     discord_dir="$HOME/.claude/channels/discord-$name"
+
+    # Seed the bundled team docs into $root/shared/ if they're not there yet,
+    # so the charter's "read $root/shared/agent-onboarding.md first" resolves.
+    ensure_shared_deps "$root"
 
     # Register the String agent with home = work dir. Both engines use this same
     # home path (Claude Code project dir / Codex -C dir) so the String agent id
